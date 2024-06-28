@@ -3,7 +3,7 @@ import re
 from typing import Optional, Union
 import pandas as pd
 import numpy as np
-from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score
+from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score, classification_report
 import torch
 from datasets import Dataset
 from dataclasses import dataclass
@@ -14,7 +14,11 @@ from peft import LoraConfig, get_peft_model
 from trl import DataCollatorForCompletionOnlyLM, SFTTrainer
 from lightning import seed_everything
 
-TYPE_MODEL = "pythia-70m"
+#delete warnings
+import warnings
+warnings.filterwarnings("ignore")
+
+TYPE_MODEL = "pythia-160m"
 MODEL_NAME = f'EleutherAI/{TYPE_MODEL}-deduped'
 DATASET_FOLDER = "kaggle-llm-science-exam"
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
@@ -28,7 +32,7 @@ SEED = 42
 
 
 def generate_sample(prompt, A, B, C, D, answer):
-    prompt = "Choose the correct answer: " + prompt + "\n"
+    prompt = "Choose the correct answer, respond only with A,B,C or D: " + prompt + "\n"
     options = [A, B, C, D]
     options = "\n".join([f"{chr(65 + i)}) {option}" for i, option in enumerate(options)])
     answer = f"Answer:{answer}"
@@ -43,10 +47,12 @@ def formatting_prompts_func(example):
 def create_dataset() -> dict:
     df_train = pd.read_csv(os.path.join(DATASET_FOLDER, "train.csv"))
     df_train = df_train.drop(columns="id")
-    df_train = pd.concat([
-        df_train,
-        pd.read_csv(os.path.join(DATASET_FOLDER, "extra_train_set.csv")),
-    ])
+    list_of_extra_datasets = ["extra_train_set.csv", "15k_gpt3.5-turbo.csv", "5900_examples.csv", "6000_train_examples.csv"]
+    for dataset in list_of_extra_datasets:
+        df_train = pd.concat([
+            df_train,
+            pd.read_csv(os.path.join(DATASET_FOLDER, dataset)),
+        ])
     #delete any rows with NaN or None values
     df_train = df_train.dropna()
     df_train = df_train.drop_duplicates()
@@ -117,7 +123,7 @@ class Evaluator:
 
     @staticmethod
     def generate_prompt(prompt, A, B, C, D):
-        prompt = "Choose the correct answer: " + prompt + "\n"
+        prompt = "Choose the correct answer, respond only with A,B,C or D: " + prompt + "\n"
         options = [A, B, C, D]
         options = "\n".join([f"{chr(65 + i)}) {option}" for i, option in enumerate(options)])
         answer = f"Answer:"
@@ -148,9 +154,12 @@ class Evaluator:
 
             match = re.findall(r'Answer:(\w+)', output_text)
             if match:
-                y_pred.append(match[0])
+                y_pred.append(match[0].upper()[0])
             else:
                 y_pred.append("-")
+
+        print(y_pred)
+        print(classification_report(y_true, y_pred))
 
         metrics = {
             "accuracy": accuracy_score(y_true, y_pred),

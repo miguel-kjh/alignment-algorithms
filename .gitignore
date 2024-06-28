@@ -162,3 +162,5 @@ cython_debug/
 #.idea/
 wandb/
 gpt2-imdb-rlhf/
+kaggle-llm-science-exam/
+checkpoints-*

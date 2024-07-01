@@ -14,21 +14,23 @@ from peft import LoraConfig, get_peft_model
 from trl import DataCollatorForCompletionOnlyLM, SFTTrainer
 from lightning import seed_everything
 from datasets import load_dataset
+from evaluate import load
 
 #delete warnings
 import warnings
 warnings.filterwarnings("ignore")
 
-TYPE_MODEL = "pythia-160m"
+TYPE_MODEL = "pythia-70m"
 MODEL_NAME = f'EleutherAI/{TYPE_MODEL}-deduped'
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
+os.environ["HF_ALLOW_CODE_EVAL"] = "1"
 
 BATCH_SIZE = 8
-EPOCHS = 5
+EPOCHS = 1
 LEARNING_RATE = 1e-4
 WEIGHT_DECAY = 0.01
 BLOCK_SIZE = 512
-SEED = 42
+SEED = 2024
 INTRUCTION_TEMPLATE = "### Human:"
 RESPONSE_TEMPLATE = "### Response:"
 DATASET = "HuggingFaceH4/CodeAlpaca_20K"
@@ -104,11 +106,9 @@ class Evaluator:
 
     @staticmethod
     def generate_prompt(prompt):
-        prompt = "Choose the correct answer, respond only with A,B,C or D: " + prompt + "\n"
-        options = [A, B, C, D]
-        options = "\n".join([f"{chr(65 + i)}) {option}" for i, option in enumerate(options)])
-        answer = f"Answer:"
-        return prompt + options + "\n" + answer
+        prompt = INTRUCTION_TEMPLATE + prompt
+        answer = RESPONSE_TEMPLATE
+        return prompt + answer
 
     def evaluate(self, max_tokens: int, verbose: bool = True):
         device = "cuda" if torch.cuda.is_available() else "cpu"
@@ -120,8 +120,8 @@ class Evaluator:
         y_pred = []
 
         for example in iterator:
-            y_true.append(example["answer"])
-            prompt = self.generate_prompt(example["prompt"], example["A"], example["B"], example["C"], example["D"])
+            y_true.append(example["canonical_solution"])
+            prompt = self.generate_prompt(example["prompt"])
 
             inputs = self._tokenizer.encode(prompt, return_tensors="pt").to(device)
             with torch.no_grad():
@@ -133,21 +133,7 @@ class Evaluator:
                 )
             output_text = self._tokenizer.decode(outputs[0], skip_special_tokens=True)
 
-            match = re.findall(r'Answer:(\w+)', output_text)
-            if match:
-                y_pred.append(match[0].upper()[0])
-            else:
-                y_pred.append("-")
-
-        print(y_pred)
-        print(classification_report(y_true, y_pred))
-
-        metrics = {
-            "accuracy": accuracy_score(y_true, y_pred),
-            "precision": precision_score(y_true, y_pred, average="weighted", zero_division=0),
-            "recall": recall_score(y_true, y_pred, average="weighted", zero_division=0),
-            "f1": f1_score(y_true, y_pred, average="weighted", zero_division=0)
-        } 
+        metrics = {} 
 
         return metrics
 
@@ -180,4 +166,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    #main()
+    
+    from datasets import load_dataset
+
+    ds = load_dataset("openai/openai_humaneval")
+    
+    print(ds["test"]["prompt"][0])
+    #print(ds["test"]["canonical_solution"][0])"""

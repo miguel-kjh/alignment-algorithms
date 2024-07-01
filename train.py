@@ -13,6 +13,7 @@ from transformers import TrainingArguments,  GPTNeoXForCausalLM
 from peft import LoraConfig, get_peft_model
 from trl import DataCollatorForCompletionOnlyLM, SFTTrainer
 from lightning import seed_everything
+from datasets import load_dataset
 
 #delete warnings
 import warnings
@@ -20,7 +21,6 @@ warnings.filterwarnings("ignore")
 
 TYPE_MODEL = "pythia-160m"
 MODEL_NAME = f'EleutherAI/{TYPE_MODEL}-deduped'
-DATASET_FOLDER = "kaggle-llm-science-exam"
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
 BATCH_SIZE = 8
@@ -29,45 +29,26 @@ LEARNING_RATE = 1e-4
 WEIGHT_DECAY = 0.01
 BLOCK_SIZE = 512
 SEED = 42
+INTRUCTION_TEMPLATE = "### Human:"
+RESPONSE_TEMPLATE = "### Response:"
+DATASET = "HuggingFaceH4/CodeAlpaca_20K"
 
 
-def generate_sample(prompt, A, B, C, D, answer):
-    prompt = "Choose the correct answer, respond only with A,B,C or D: " + prompt + "\n"
-    options = [A, B, C, D]
-    options = "\n".join([f"{chr(65 + i)}) {option}" for i, option in enumerate(options)])
-    answer = f"Answer:{answer}"
-    return prompt + options + "\n" + answer
+def generate_sample(prompt, answer):
+    prompt = INTRUCTION_TEMPLATE + prompt
+    answer = RESPONSE_TEMPLATE + answer
+    return prompt + answer
 
 def formatting_prompts_func(example):
     output_texts = []
-    for prompt, a, b, c, d, answer in zip(example["prompt"], example["A"], example["B"], example["C"], example["D"], example["answer"]):
-        output_texts.append(generate_sample(prompt, a, b, c, d, answer))
+    for prompt, completion in zip(example["prompt"], example["completion"]):
+        output_texts.append(generate_sample(prompt, completion))
     return output_texts
 
 def create_dataset() -> dict:
-    df_train = pd.read_csv(os.path.join(DATASET_FOLDER, "train.csv"))
-    df_train = df_train.drop(columns="id")
-    list_of_extra_datasets = ["extra_train_set.csv", "15k_gpt3.5-turbo.csv", "5900_examples.csv", "6000_train_examples.csv"]
-    for dataset in list_of_extra_datasets:
-        df_train = pd.concat([
-            df_train,
-            pd.read_csv(os.path.join(DATASET_FOLDER, dataset)),
-        ])
-    #delete any rows with NaN or None values
-    df_train = df_train.dropna()
-    df_train = df_train.drop_duplicates()
-    df_train.reset_index(inplace=True, drop=True)
-    # separate the dataset into train and test
-    train_dataset = df_train.sample(frac=0.8, random_state=SEED)
-    test_dataset  = df_train.drop(train_dataset.index)
+    return load_dataset(DATASET)
 
-    train_dataset = Dataset.from_pandas(train_dataset)
-    test_dataset  = Dataset.from_pandas(test_dataset)
-
-    response_template = "Answer:"
-    return {"train": train_dataset, "test": test_dataset}, response_template
-
-def train(model, dataset, tokenizer, formatting_function,  response_template, max_seq_length=BLOCK_SIZE, batch_size=8):
+def train(model, dataset, tokenizer, formatting_function, max_seq_length=BLOCK_SIZE, batch_size=8):
     lora_config = LoraConfig(
         r=16,
         lora_alpha=32,
@@ -94,7 +75,7 @@ def train(model, dataset, tokenizer, formatting_function,  response_template, ma
         greater_is_better=False,
     )
     
-    collator = DataCollatorForCompletionOnlyLM(response_template, tokenizer=tokenizer)
+    collator = DataCollatorForCompletionOnlyLM(instruction_template=INTRUCTION_TEMPLATE, response_template=RESPONSE_TEMPLATE, tokenizer=tokenizer)
     trainer = SFTTrainer(
         model=model_lora,
         args=args,
@@ -122,7 +103,7 @@ class Evaluator:
         self._test_dataset = test_dataset
 
     @staticmethod
-    def generate_prompt(prompt, A, B, C, D):
+    def generate_prompt(prompt):
         prompt = "Choose the correct answer, respond only with A,B,C or D: " + prompt + "\n"
         options = [A, B, C, D]
         options = "\n".join([f"{chr(65 + i)}) {option}" for i, option in enumerate(options)])
@@ -184,15 +165,16 @@ def main():
     torch.backends.cudnn.deterministic = True
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     tokenizer.pad_token = tokenizer.eos_token
-    dataset, response_template = create_dataset()
+    dataset = create_dataset()
+    print(dataset)
 
     model = GPTNeoXForCausalLM.from_pretrained(MODEL_NAME)
-    model = train(model, dataset, tokenizer, formatting_prompts_func, response_template, max_seq_length=BLOCK_SIZE, batch_size=BATCH_SIZE)
-    model.save_pretrained(f"saved_models/exam_model/{TYPE_MODEL}")
+    model = train(model, dataset, tokenizer, formatting_prompts_func, max_seq_length=BLOCK_SIZE, batch_size=BATCH_SIZE)
+    model.save_pretrained(f"saved_models/code_model/{TYPE_MODEL}")
     #evaluate the model
-    model = GPTNeoXForCausalLM.from_pretrained("saved_models/exam_model")
+    """model = GPTNeoXForCausalLM.from_pretrained("saved_models/exam_model")
     metrics = evaluate_model(model, dataset, tokenizer)
-    print(metrics)
+    print(metrics)"""
 
 
 

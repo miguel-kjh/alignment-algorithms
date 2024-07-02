@@ -166,10 +166,8 @@ def main():
 
 if __name__ == "__main__":
     #main()
-    print("Hello")
-    """from evaluate import load
     code_eval = load("code_eval")
-    test_cases = ["assert add(2,3)==5"]
-    candidates = [["def add(a,b): return a*b", "def add(a, b): return a+b"]]
+    test_cases = [["assert add(2,3)==5", "assert add(4,5)==9"]]
+    candidates = [["def add(a,b): return a*1+b*1", "def add(a, b): return a+b"]]
     pass_at_k, results = code_eval.compute(references=test_cases, predictions=candidates, k=[1, 2])
-    print(pass_at_k)"""
+    print(pass_at_k)

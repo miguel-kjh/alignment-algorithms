@@ -29,11 +29,11 @@ device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
 
 
-BATCH_SIZE = 4
+BATCH_SIZE = 8
 EPOCHS = 1
 LEARNING_RATE = 1e-4
 WEIGHT_DECAY = 0.01
-BLOCK_SIZE = 68
+BLOCK_SIZE = 512
 SEED = 2024
 INTRUCTION_TEMPLATE = "### Human:"
 RESPONSE_TEMPLATE = "### Response:"

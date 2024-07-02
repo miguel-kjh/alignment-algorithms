@@ -3,7 +3,6 @@ import re
 from typing import Optional, Union
 import pandas as pd
 import numpy as np
-from sklearn.metrics import f1_score, precision_score, recall_score, accuracy_score, classification_report
 import torch
 from datasets import Dataset
 from dataclasses import dataclass
@@ -167,10 +166,10 @@ def main():
 
 if __name__ == "__main__":
     #main()
-    
-    from datasets import load_dataset
-
-    ds = load_dataset("openai/openai_humaneval")
-    
-    print(ds["test"]["prompt"][0])
-    #print(ds["test"]["canonical_solution"][0])"""
+    print("Hello")
+    """from evaluate import load
+    code_eval = load("code_eval")
+    test_cases = ["assert add(2,3)==5"]
+    candidates = [["def add(a,b): return a*b", "def add(a, b): return a+b"]]
+    pass_at_k, results = code_eval.compute(references=test_cases, predictions=candidates, k=[1, 2])
+    print(pass_at_k)"""

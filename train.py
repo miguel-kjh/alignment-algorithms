@@ -93,14 +93,14 @@ def train(model, dataset, tokenizer, formatting_function, max_seq_length=BLOCK_S
     )
     
     collator = DataCollatorForCompletionOnlyLM(instruction_template=INTRUCTION_TEMPLATE, response_template=RESPONSE_TEMPLATE, tokenizer=tokenizer)
-    sample = 100
+    """sample = 100
     train_data = dataset["train"].shuffle(seed=SEED).select(range(sample))
-    eval_data = dataset["test"].shuffle(seed=SEED).select(range(sample))
+    eval_data = dataset["test"].shuffle(seed=SEED).select(range(sample))"""
     trainer = SFTTrainer(
         model=model_lora,
         args=args,
-        train_dataset=train_data,
-        eval_dataset=eval_data,
+        train_dataset=dataset["train"],
+        eval_dataset=dataset["test"],
         formatting_func=formatting_function,
         data_collator=collator,
         max_seq_length=max_seq_length,
@@ -175,7 +175,6 @@ def main():
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     tokenizer.pad_token = tokenizer.eos_token
     dataset = create_dataset()
-    print(dataset)
 
     model = GPTNeoXForCausalLM.from_pretrained(MODEL_NAME)
     model = train(model, dataset, tokenizer, formatting_prompts_func, max_seq_length=BLOCK_SIZE, batch_size=BATCH_SIZE)

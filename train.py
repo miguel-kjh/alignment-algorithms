@@ -166,8 +166,13 @@ def main():
 
 if __name__ == "__main__":
     #main()
+    ds = load_dataset("openai/openai_humaneval")
     code_eval = load("code_eval")
-    test_cases = [["assert add(2,3)==5", "assert add(4,5)==9"]]
-    candidates = [["def add(a,b): return a*1+b*1", "def add(a, b): return a+b"]]
-    pass_at_k, results = code_eval.compute(references=test_cases, predictions=candidates, k=[1, 2])
+    print(ds["test"][0]["test"])
+    test_cases = [ds["test"][0]["test"]]
+    candidates = [["def add(a,b): return False"]]
+    pass_at_k, results = code_eval.compute(references=test_cases, predictions=candidates, k=[1])
     print(pass_at_k)
+    
+
+    

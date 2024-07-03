@@ -166,3 +166,4 @@ kaggle-llm-science-exam/
 checkpoints-*
 logs/
 saved_models/
+datasets/

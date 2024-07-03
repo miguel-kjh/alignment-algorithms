@@ -61,7 +61,7 @@ def formatting_prompts_func(example):
     return output_texts
 
 def create_dataset() -> dict:
-    return load_dataset(DATASET)
+    return load_dataset(DATASET, num_proc=10, cache_dir="datasets/")
 
 def train(model, dataset, tokenizer, formatting_function, max_seq_length=BLOCK_SIZE, batch_size=8):
     
@@ -172,11 +172,15 @@ def setup_environment(project, seed_value):
 def main():
 
     setup_environment(PROJECT, SEED)
+    print("tokenizing...")
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     tokenizer.pad_token = tokenizer.eos_token
+    print("creating dataset...")
     dataset = create_dataset()
 
+    print("downloading model...")
     model = GPTNeoXForCausalLM.from_pretrained(MODEL_NAME)
+    print("training model...")
     model = train(model, dataset, tokenizer, formatting_prompts_func, max_seq_length=BLOCK_SIZE, batch_size=BATCH_SIZE)
     model.save_pretrained(f"saved_models/code_model/{TYPE_MODEL}")
     #evaluate the model
@@ -188,9 +192,11 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
-    """ds = load_dataset("openai/openai_humaneval")
-    code_eval = load("code_eval")
+    #main()
+
+    ds = load_dataset("google-research-datasets/mbpp", "full", cache_dir="datasets/", num_proc=10, download_mode="force_redownload")
+    print(ds)
+    """code_eval = load("code_eval")
     print(ds["test"][0]["test"])
     test_cases = [ds["test"][0]["test"]]
     candidates = [["def add(a,b): return False"]]

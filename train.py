@@ -194,8 +194,11 @@ def main():
 if __name__ == "__main__":
     #main()
 
-    ds = load_dataset("google-research-datasets/mbpp", "full", cache_dir="datasets/", num_proc=10, download_mode="force_redownload")
-    print(ds)
+    ds = load_dataset("google-research-datasets/mbpp", "full", cache_dir="datasets/", num_proc=10, split=["train", "test", "validation"])
+    train_dataset = ds[0]
+    print(train_dataset["text"][0])
+    print(train_dataset["code"][0])
+    print(train_dataset["test_list"][0])
     """code_eval = load("code_eval")
     print(ds["test"][0]["test"])
     test_cases = [ds["test"][0]["test"]]

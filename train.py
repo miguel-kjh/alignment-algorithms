@@ -199,12 +199,12 @@ if __name__ == "__main__":
     print(train_dataset["text"][0])
     print(train_dataset["code"][0])
     print(train_dataset["test_list"][0])
-    """code_eval = load("code_eval")
+    code_eval = load("code_eval")
     print(ds["test"][0]["test"])
-    test_cases = [ds["test"][0]["test"]]
-    candidates = [["def add(a,b): return False"]]
+    test_cases = [train_dataset["code"][0]]
+    candidates = [train_dataset["test_list"][0][0]]
     pass_at_k, results = code_eval.compute(references=test_cases, predictions=candidates, k=[1])
-    print(pass_at_k)"""
+    print(pass_at_k)
 
     #print("Current timestamp:", get_current_timestamp())
 

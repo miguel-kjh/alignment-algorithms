@@ -5,7 +5,7 @@ import numpy as np
 import torch
 from datasets import Dataset
 from dataclasses import dataclass
-from transformers import AutoTokenizer
+from transformers import AutoTokenizer, BitsAndBytesConfig, AutoModelForCausalLM
 from transformers import TrainingArguments,  GPTNeoXForCausalLM
 from peft import LoraConfig, get_peft_model
 from trl import DataCollatorForCompletionOnlyLM, SFTTrainer
@@ -44,6 +44,7 @@ LORA_DROPOUT = 0.05
 LORA_BIAS = "none"
 LORA_TASK_TYPE = "CAUSAL_LM"
 LORA_TARGET_MODULES = ["query_key_value", "dense", "dense_h_to_4h", "dense_4h_to_h"]
+QLORA = True
 
 
 def generate_sample(prompt, answer):
@@ -122,7 +123,20 @@ def main():
     dataset = create_dataset()
 
     print("downloading model...")
-    model = GPTNeoXForCausalLM.from_pretrained(MODEL_NAME)
+    if QLORA:
+        bnb_config = BitsAndBytesConfig(
+            load_in_4bit= True,
+            bnb_4bit_quant_type= "nf4",
+            bnb_4bit_compute_dtype= torch.bfloat16,
+            bnb_4bit_use_double_quant= False,
+        )
+        model = AutoModelForCausalLM.from_pretrained(
+            MODEL_NAME,
+            quantization_config=bnb_config,
+            device_map={"": 0}
+        )
+    else:
+        model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
     print("training model...")
     model = train(model, dataset, tokenizer, formatting_prompts_func, max_seq_length=BLOCK_SIZE, batch_size=BATCH_SIZE)
     model.save_pretrained(f"saved_models/code_model/{TYPE_MODEL}")

@@ -1,4 +1,3 @@
-import os
 import re
 from typing import Optional, Union
 import pandas as pd
@@ -6,16 +5,16 @@ import numpy as np
 import torch
 from datasets import Dataset
 from dataclasses import dataclass
-import tqdm
 from transformers import AutoTokenizer
 from transformers import TrainingArguments,  GPTNeoXForCausalLM
 from peft import LoraConfig, get_peft_model
 from trl import DataCollatorForCompletionOnlyLM, SFTTrainer
-from lightning import seed_everything
 from datasets import load_dataset
 from evaluate import load
 import wandb
 import time
+
+from utils import INTRUCTION_TEMPLATE, RESPONSE_TEMPLATE, setup_environment
 wandb.require("core")
 from datetime import datetime
 
@@ -35,10 +34,16 @@ LEARNING_RATE = 1e-4
 WEIGHT_DECAY = 0.01
 BLOCK_SIZE = 512
 SEED = 2024
-INTRUCTION_TEMPLATE = "### Human:"
-RESPONSE_TEMPLATE = "### Response:"
 DATASET = "HuggingFaceH4/CodeAlpaca_20K"
 PROJECT = "instruction_tuning_code"
+
+#lora parameters
+LORA_ALPHA = 32
+LORA_R = 16
+LORA_DROPOUT = 0.05
+LORA_BIAS = "none"
+LORA_TASK_TYPE = "CAUSAL_LM"
+LORA_TARGET_MODULES = ["query_key_value", "dense", "dense_h_to_4h", "dense_4h_to_h"]
 
 
 def generate_sample(prompt, answer):
@@ -61,17 +66,17 @@ def formatting_prompts_func(example):
     return output_texts
 
 def create_dataset() -> dict:
-    return load_dataset(DATASET, num_proc=10, cache_dir="datasets/")
+    return load_dataset(DATASET, num_proc=10)
 
 def train(model, dataset, tokenizer, formatting_function, max_seq_length=BLOCK_SIZE, batch_size=8):
     
     lora_config = LoraConfig(
-        r=16,
-        lora_alpha=32,
-        target_modules=["query_key_value", "dense", "dense_h_to_4h", "dense_4h_to_h"],
-        lora_dropout=0.05,
-        bias="none",
-        task_type="CAUSAL_LM"
+        r=LORA_R,
+        lora_alpha=LORA_ALPHA,
+        lora_dropout=LORA_DROPOUT,
+        bias=LORA_BIAS,
+        task_type=LORA_TASK_TYPE,
+        target_modules=LORA_TARGET_MODULES,
     )
     model_lora = get_peft_model(model, lora_config)
     model_lora.print_trainable_parameters()
@@ -108,70 +113,8 @@ def train(model, dataset, tokenizer, formatting_function, max_seq_length=BLOCK_S
     trainer.train()
     return model_lora.merge_and_unload()
 
-class Evaluator:
-
-    def __init__(
-            self,
-            model,
-            test_dataset,
-            tokenizer,
-        ) -> None:
-
-        super().__init__()
-        self._model = model
-        self._tokenizer = tokenizer
-        self._test_dataset = test_dataset
-
-    @staticmethod
-    def generate_prompt(prompt):
-        prompt = INTRUCTION_TEMPLATE + prompt
-        answer = RESPONSE_TEMPLATE
-        return prompt + answer
-
-    def evaluate(self, max_tokens: int, verbose: bool = True):
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        self._model.to(device)
-
-        iterator = tqdm.tqdm(self._test_dataset, desc="Evaluating") if verbose else self._test_dataset
-
-        y_true = []
-        y_pred = []
-
-        for example in iterator:
-            y_true.append(example["canonical_solution"])
-            prompt = self.generate_prompt(example["prompt"])
-
-            inputs = self._tokenizer.encode(prompt, return_tensors="pt").to(device)
-            with torch.no_grad():
-                outputs = self._model.generate(
-                    inputs, 
-                    do_sample=True, 
-                    max_new_tokens=max_tokens,
-                    pad_token_id=self._tokenizer.eos_token_id
-                )
-            output_text = self._tokenizer.decode(outputs[0], skip_special_tokens=True)
-
-        metrics = {} 
-
-        return metrics
-
-def evaluate_model(model, dataset, tokenizer, max_tokens=1) -> dict:
-    evaluator = Evaluator(model, dataset["test"], tokenizer)
-    metrics = evaluator.evaluate(max_tokens=max_tokens)
-    return {
-        name: round(result, 2)*100
-        for name, result in metrics.items()
-    }
-    
-def setup_environment(project, seed_value):
-    os.environ["WANDB_PROJECT"] = project
-    seed_everything(seed_value)
-    torch.backends.cudnn.deterministic = True
-    os.environ["HF_ALLOW_CODE_EVAL"] = "1"
-
 def main():
 
-    setup_environment(PROJECT, SEED)
     print("tokenizing...")
     tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
     tokenizer.pad_token = tokenizer.eos_token
@@ -192,21 +135,8 @@ def main():
 
 
 if __name__ == "__main__":
-    #main()
-
-    ds = load_dataset("google-research-datasets/mbpp", "full", cache_dir="datasets/", num_proc=10, split=["train", "test", "validation"])
-    train_dataset = ds[0]
-    print(train_dataset["text"][0])
-    print(train_dataset["code"][0])
-    print(train_dataset["test_list"][0])
-    code_eval = load("code_eval")
-    print(ds["test"][0]["test"])
-    test_cases = [train_dataset["code"][0]]
-    candidates = [train_dataset["test_list"][0][0]]
-    pass_at_k, results = code_eval.compute(references=test_cases, predictions=candidates, k=[1])
-    print(pass_at_k)
-
-    #print("Current timestamp:", get_current_timestamp())
+    setup_environment(PROJECT, SEED)
+    main()
 
     
 

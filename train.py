@@ -29,7 +29,7 @@ device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
 
 BATCH_SIZE = 8
-EPOCHS = 1
+EPOCHS = 2
 LEARNING_RATE = 1e-4
 WEIGHT_DECAY = 0.01
 BLOCK_SIZE = 512
@@ -126,6 +126,9 @@ def main():
     print("training model...")
     model = train(model, dataset, tokenizer, formatting_prompts_func, max_seq_length=BLOCK_SIZE, batch_size=BATCH_SIZE)
     model.save_pretrained(f"saved_models/code_model/{TYPE_MODEL}")
+    #upload to huggingface hub
+    model = GPTNeoXForCausalLM.from_pretrained("saved_models/code_model/pythia-70m")
+    model.push_to_hub(f"miguel-kjh/{TYPE_MODEL}_instruction_code_tuning")
     #evaluate the model
     """model = GPTNeoXForCausalLM.from_pretrained("saved_models/exam_model")
     metrics = evaluate_model(model, dataset, tokenizer)

@@ -1,3 +1,4 @@
+import argparse
 import re
 from typing import Optional, Union
 import pandas as pd
@@ -14,52 +15,44 @@ from evaluate import load
 import wandb
 import time
 
-from utils import INTRUCTION_TEMPLATE, RESPONSE_TEMPLATE, setup_environment
+from utils import INTRUCTION_TEMPLATE, RESPONSE_TEMPLATE, generate_sample, get_current_timestamp, setup_environment
 wandb.require("core")
-from datetime import datetime
 
 #delete warnings
 import warnings
 warnings.filterwarnings("ignore")
 
-#TODO: expandir esto para diferentes tipos de modelos
-TYPE_MODEL = "pythia-70m"
-MODEL_NAME = f'EleutherAI/{TYPE_MODEL}-deduped'
-device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
-
-#TODO: pasar a argumentos
-BATCH_SIZE = 8
-EPOCHS = 2
-LEARNING_RATE = 1e-4
-WEIGHT_DECAY = 0.01
-BLOCK_SIZE = 512
-SEED = 2024
-DATASET = "HuggingFaceH4/CodeAlpaca_20K"
-PROJECT = "instruction_tuning_code"
-
-#lora parameters
-LORA_ALPHA = 32
-LORA_R = 16
-LORA_DROPOUT = 0.05
-LORA_BIAS = "none"
-LORA_TASK_TYPE = "CAUSAL_LM"
-LORA_TARGET_MODULES = ["query_key_value", "dense", "dense_h_to_4h", "dense_4h_to_h"]
-QLORA = True
-
-
-def generate_sample(prompt, answer):
-    prompt = INTRUCTION_TEMPLATE + prompt
-    answer = RESPONSE_TEMPLATE + answer
-    return prompt + answer
-
-def get_current_timestamp():
-    current_timestamp = datetime.now()
-    formatted_timestamp = current_timestamp.strftime("%Y-%m-%d_%H-%M-%S")
-    return formatted_timestamp
-
-
-run_name = f"{TYPE_MODEL}_tuning_code_epoch_{EPOCHS}_lr_{LEARNING_RATE}_wd_{WEIGHT_DECAY}_bs_{BATCH_SIZE}_block_{BLOCK_SIZE}_timestamp_{get_current_timestamp()}"
+def parse_args():
+    parse = argparse.ArgumentParser()
+    parse.add_argument("--model_name", type=str, default="EleutherAI/pythia-70m-deduped")
+    parse.add_argument("--batch_size", type=int, default=8)
+    parse.add_argument("--epochs", type=int, default=2)
+    parse.add_argument("--lr", type=float, default=1e-4)
+    parse.add_argument("--weight_decay", type=float, default=0.01)
+    parse.add_argument("--block_size", type=int, default=512)
+    parse.add_argument("--seed", type=int, default=2024)
+    parse.add_argument("--dataset", type=str, default="HuggingFaceH4/CodeAlpaca_20K")
+    parse.add_argument("--num_proc", type=int, default=10)
+    parse.add_argument("--project", type=str, default="instruction_tuning_code")
+    parse.add_argument("--device", type=str, default="cuda:0" if torch.cuda.is_available() else "cpu")
+    parse.add_argument("--wandb", type=bool, default=True)
+    parse.add_argument("--upload", type=bool, default=False)
+    parse.add_argument("--tiny_dataset", type=bool, default=False)
+    #loras parameters
+    parse.add_argument("--lora_r", type=int, default=16)
+    parse.add_argument("--lora_alpha", type=int, default=32) # a trick use lora_r*2
+    parse.add_argument("--lora_dropout", type=float, default=0.05)
+    parse.add_argument("--lora_bias", type=str, default="none")
+    parse.add_argument("--lora_task_type", type=str, default="CAUSAL_LM")
+    parse.add_argument("--lora_target_modules", type=str, default="query_key_value,dense,dense_h_to_4h,dense_4h_to_h")
+    parse.add_argument("--qlora", type=bool, default=False)
+    
+    args = parse.parse_args()
+    args.lora_target_modules = args.lora_target_modules.split(",")
+    args.short_model_name = args.model_name.split("/")[-1]
+    args.run_name = f"{args.short_model_name}_tuning_code_epoch_{args.epochs}_lr_{args.lr}_wd_{args.weight_decay}_bs_{args.batch_size}_block_{args.block_size}_timestamp_{get_current_timestamp()}"
+    return args
 
 def formatting_prompts_func(example):
     output_texts = []
@@ -67,65 +60,62 @@ def formatting_prompts_func(example):
         output_texts.append(generate_sample(prompt, completion))
     return output_texts
 
-def create_dataset() -> dict:
-    return load_dataset(DATASET, num_proc=10)
+def create_dataset(args) -> dict:
+    ds = load_dataset(args.dataset, num_proc=args.num_proc)
+    if args.tiny_dataset:
+        ds["train"] = ds["train"].shuffle(seed=args.seed).select(range(100))
+        ds["test"] = ds["test"].shuffle(seed=args.seed).select(range(100))
+    return ds
 
-def train(model, dataset, tokenizer, formatting_function, max_seq_length=BLOCK_SIZE, batch_size=8):
+def train(model, dataset, tokenizer, formatting_function, args):
     
     lora_config = LoraConfig(
-        r=LORA_R,
-        lora_alpha=LORA_ALPHA,
-        lora_dropout=LORA_DROPOUT,
-        bias=LORA_BIAS,
-        task_type=LORA_TASK_TYPE,
-        target_modules=LORA_TARGET_MODULES,
+        r=args.lora_r,
+        lora_alpha=args.lora_alpha,
+        lora_dropout=args.lora_dropout,
+        bias=args.lora_bias,
+        task_type=args.lora_task_type,
+        target_modules=args.lora_target_modules,
     )
     model_lora = get_peft_model(model, lora_config)
     model_lora.print_trainable_parameters()
-    model_lora.config._name_or_path = MODEL_NAME
+    model_lora.config._name_or_path = args.model_name
     model_lora.config.pad_token_id = tokenizer.pad_token_id
-    args  = TrainingArguments(
-        output_dir="saved_models/",
-        learning_rate=LEARNING_RATE,
-        per_device_train_batch_size=batch_size,
-        num_train_epochs=EPOCHS,
-        weight_decay=WEIGHT_DECAY,
+    train_arguments  = TrainingArguments(
+        output_dir=f"saved_models/{args.short_model_name}",
+        learning_rate=args.lr,
+        per_device_train_batch_size=args.batch_size,
+        num_train_epochs=args.epochs,
+        weight_decay=args.weight_decay,
         evaluation_strategy="epoch",
         logging_dir="./logs",
         save_strategy="epoch",
         load_best_model_at_end=False,
         metric_for_best_model="loss",
         greater_is_better=False,
-        run_name=run_name,
+        run_name=args.run_name,
     )
     
     collator = DataCollatorForCompletionOnlyLM(instruction_template=INTRUCTION_TEMPLATE, response_template=RESPONSE_TEMPLATE, tokenizer=tokenizer)
-    #TODO: crear un argumento para samplear el dataset en version tiny de prubas
-    """sample = 100
-    train_data = dataset["train"].shuffle(seed=SEED).select(range(sample))
-    eval_data = dataset["test"].shuffle(seed=SEED).select(range(sample))"""
+        
     trainer = SFTTrainer(
         model=model_lora,
-        args=args,
+        args=train_arguments,
         train_dataset=dataset["train"],
         eval_dataset=dataset["test"],
         formatting_func=formatting_function,
         data_collator=collator,
-        max_seq_length=max_seq_length,
+        max_seq_length=args.block_size,
     )
     trainer.train()
     return model_lora.merge_and_unload()
 
-def main():
-
-    print("tokenizing...")
-    tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
+def main(args):
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
     tokenizer.pad_token = tokenizer.eos_token
-    print("creating dataset...")
-    dataset = create_dataset()
+    dataset = create_dataset(args)
 
-    print("downloading model...")
-    if QLORA:
+    if args.qlora:
         bnb_config = BitsAndBytesConfig(
             load_in_4bit= True,
             bnb_4bit_quant_type= "nf4",
@@ -133,30 +123,27 @@ def main():
             bnb_4bit_use_double_quant= False,
         )
         model = AutoModelForCausalLM.from_pretrained(
-            MODEL_NAME,
+            args.model_name,
             quantization_config=bnb_config,
             device_map={"": 0}
         )
     else:
-        model = AutoModelForCausalLM.from_pretrained(MODEL_NAME)
-    print("training model...")
-    model = train(model, dataset, tokenizer, formatting_prompts_func, max_seq_length=BLOCK_SIZE, batch_size=BATCH_SIZE)
-    model.save_pretrained(f"saved_models/code_model/{TYPE_MODEL}")
-    #upload to huggingface hub
-    model = GPTNeoXForCausalLM.from_pretrained("saved_models/code_model/pythia-70m")
-    model.push_to_hub(f"miguel-kjh/{TYPE_MODEL}_instruction_code_tuning")
-    #evaluate the model
-    """model = GPTNeoXForCausalLM.from_pretrained("saved_models/exam_model")
-    metrics = evaluate_model(model, dataset, tokenizer)
-    print(metrics)"""
+        model = AutoModelForCausalLM.from_pretrained(args.model_name)
+
+    model = train(model, dataset, tokenizer, formatting_prompts_func, args)
+    model.save_pretrained(f"saved_models/code_model/{args.model_name}")
+
+    if args.upload:
+        model = AutoModelForCausalLM.from_pretrained("saved_models/code_model/pythia-70m")
+        model.push_to_hub(f"miguel-kjh/{args.short_model_name}_instruction_code_tuning")
 
 
 
 
 if __name__ == "__main__":
-    setup_environment(PROJECT, SEED)
-    main()
-
+    args = parse_args()
+    setup_environment(args.project, args.seed)
+    main(args)
     
 
     

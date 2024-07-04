@@ -141,9 +141,9 @@ def main(args):
 
 
 if __name__ == "__main__":
-    """args = parse_args()
+    args = parse_args()
     setup_environment(args.project, args.seed)
-    main(args)"""
+    main(args)
     
     
     

@@ -22,12 +22,13 @@ from datetime import datetime
 import warnings
 warnings.filterwarnings("ignore")
 
+#TODO: expandir esto para diferentes tipos de modelos
 TYPE_MODEL = "pythia-70m"
 MODEL_NAME = f'EleutherAI/{TYPE_MODEL}-deduped'
 device = "cuda:0" if torch.cuda.is_available() else "cpu"
 
 
-
+#TODO: pasar a argumentos
 BATCH_SIZE = 8
 EPOCHS = 2
 LEARNING_RATE = 1e-4
@@ -99,6 +100,7 @@ def train(model, dataset, tokenizer, formatting_function, max_seq_length=BLOCK_S
     )
     
     collator = DataCollatorForCompletionOnlyLM(instruction_template=INTRUCTION_TEMPLATE, response_template=RESPONSE_TEMPLATE, tokenizer=tokenizer)
+    #TODO: crear un argumento para samplear el dataset en version tiny de prubas
     """sample = 100
     train_data = dataset["train"].shuffle(seed=SEED).select(range(sample))
     eval_data = dataset["test"].shuffle(seed=SEED).select(range(sample))"""

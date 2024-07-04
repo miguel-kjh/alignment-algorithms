@@ -1,9 +1,10 @@
+from abc import abstractmethod, ABC
 from utils import RESPONSE_TEMPLATE
 
 from datasets import load_dataset
 from evaluate import load
 
-from transformers import GPTNeoXForCausalLM, AutoTokenizer
+from transformers import AutoModelForCausalLM, AutoTokenizer
 import torch
 import tqdm
 
@@ -19,8 +20,8 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 import warnings
 warnings.filterwarnings("ignore")
 
-class Evaluator:
-
+class Evaluator(ABC):
+    
     def __init__(
             self,
             model,
@@ -29,18 +30,29 @@ class Evaluator:
         ) -> None:
 
         super().__init__()
-        self._model: GPTNeoXForCausalLM = model
+        self._model: AutoModelForCausalLM = model
         self._tokenizer: AutoTokenizer = tokenizer
         self._test_dataset = test_dataset
-
+        
     @staticmethod
     def generate_prompt(prompt):
         prompt = INTRUCTION_TEMPLATE + prompt
         answer = RESPONSE_TEMPLATE
         return prompt + answer
+    
+    @abstractmethod
+    def evaluate(self, max_tokens: int, verbose: bool = True):
+        pass
+    
+
+class EvaluatorMBPP(Evaluator):
 
     def evaluate(self, max_tokens: int, verbose: bool = True):
-        self._model.to(device)
+        try:
+            self._model.to(device)
+        except:
+            pass
+        self._model.eval()
 
         iterator = tqdm.tqdm(self._test_dataset, desc="Evaluating") if verbose else self._test_dataset
         code_eval = load("code_eval")
@@ -61,6 +73,9 @@ class Evaluator:
             code = output_text.split(RESPONSE_TEMPLATE)[1]
             candidates = [[code]]
             test_cases = [example["test_list"][0]]
+            print(prompt)
+            print(candidates, test_cases)
+            exit()
             pass_at_k, _ = code_eval.compute(references=test_cases, predictions=candidates, k=[1])
             pass_at_k_all.append(pass_at_k["pass@1"])
 
@@ -70,9 +85,12 @@ class Evaluator:
 
         return metrics
 
+evaluators = {
+    "mbpp": EvaluatorMBPP,
+}
 
-def evaluate_model(model, dataset, tokenizer, max_tokens=100) -> dict:
-    evaluator = Evaluator(model, dataset, tokenizer)
+def evaluate_model(model, dataset, tokenizer, name_of_evluator, max_tokens=100) -> dict:
+    evaluator = evaluators[name_of_evluator](model, dataset, tokenizer)
     metrics = evaluator.evaluate(max_tokens=max_tokens)
     return {
         name: round(result, 2)*100
@@ -81,9 +99,9 @@ def evaluate_model(model, dataset, tokenizer, max_tokens=100) -> dict:
     
 def main():
     ds = load_dataset("google-research-datasets/mbpp", "sanitized", num_proc=10, split="test")
-    model = GPTNeoXForCausalLM.from_pretrained("saved_models/code_model/pythia-70m")
     tokenizer = AutoTokenizer.from_pretrained("EleutherAI/pythia-70m-deduped")
-    print(evaluate_model(model, ds, tokenizer, max_tokens=50))
+    model = AutoModelForCausalLM.from_pretrained("saved_models/code_model/pythia-70m")
+    print(evaluate_model(model, ds, tokenizer, "mbpp", max_tokens=50))
     
 if __name__ == "__main__":
     main()

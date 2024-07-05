@@ -21,9 +21,10 @@ def parse_args():
     parse.add_argument("--num_proc", type=int, default=10)
     parse.add_argument("--project", type=str, default="instruction_tuning_code")
     parse.add_argument("--device", type=str, default="cuda:0" if torch.cuda.is_available() else "cpu")
-    parse.add_argument("--wandb", type=bool, default=True)
+    parse.add_argument("--wandb", type=bool, default=False)
     parse.add_argument("--upload", type=bool, default=False)
     parse.add_argument("--tiny_dataset", type=bool, default=False)
+    parse.add_argument("--train", type=bool, default=False)
     #loras parameters
     parse.add_argument("--lora_r", type=int, default=16)
     parse.add_argument("--lora_alpha", type=int, default=32) # a trick use lora_r*2
@@ -117,14 +118,15 @@ def create_tokenizer(args):
     tokenizer.pad_token = tokenizer.eos_token
     return tokenizer
 
-def main(args):    
-    tokenizer = create_tokenizer(args)
-    dataset = create_dataset(args)
-    model = create_model(args)
-
+def main(args):
     name_for_model_save = f"saved_models/code_model/{args.short_model_name}/end"
-    model = train(model, dataset, tokenizer, formatting_prompts_func, args)
-    model.save_pretrained(name_for_model_save)
+
+    if args.train:
+        tokenizer = create_tokenizer(args)
+        dataset = create_dataset(args)
+        model = create_model(args)
+        model = train(model, dataset, tokenizer, formatting_prompts_func, args)
+        model.save_pretrained(name_for_model_save)
 
     if args.upload:
         model = AutoModelForCausalLM.from_pretrained(name_for_model_save)

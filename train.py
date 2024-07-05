@@ -1,26 +1,11 @@
 import argparse
-import re
-from typing import Optional, Union
-import pandas as pd
-import numpy as np
 import torch
-from datasets import Dataset
-from dataclasses import dataclass
-from transformers import AutoTokenizer, BitsAndBytesConfig, AutoModelForCausalLM
-from transformers import TrainingArguments,  GPTNeoXForCausalLM
+from transformers import TrainingArguments, AutoTokenizer, BitsAndBytesConfig, AutoModelForCausalLM
 from peft import LoraConfig, get_peft_model
 from trl import DataCollatorForCompletionOnlyLM, SFTTrainer
 from datasets import load_dataset
-from evaluate import load
-import wandb
-import time
 
 from utils import INTRUCTION_TEMPLATE, RESPONSE_TEMPLATE, generate_sample, get_current_timestamp, setup_environment
-wandb.require("core")
-
-#delete warnings
-import warnings
-warnings.filterwarnings("ignore")
 
 
 def parse_args():
@@ -82,7 +67,7 @@ def train(model, dataset, tokenizer, formatting_function, args):
     model_lora.config._name_or_path = args.model_name
     model_lora.config.pad_token_id = tokenizer.pad_token_id
     train_arguments  = TrainingArguments(
-        output_dir=f"saved_models/{args.short_model_name}",
+        output_dir=f"saved_models/code_model/{args.short_model_name}",
         learning_rate=args.lr,
         per_device_train_batch_size=args.batch_size,
         num_train_epochs=args.epochs,
@@ -110,11 +95,7 @@ def train(model, dataset, tokenizer, formatting_function, args):
     trainer.train()
     return model_lora.merge_and_unload()
 
-def main(args):
-    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
-    tokenizer.pad_token = tokenizer.eos_token
-    dataset = create_dataset(args)
-
+def create_model(args):
     if args.qlora:
         bnb_config = BitsAndBytesConfig(
             load_in_4bit= True,
@@ -129,8 +110,20 @@ def main(args):
         )
     else:
         model = AutoModelForCausalLM.from_pretrained(args.model_name)
+    return model
 
-    name_for_model_save = f"saved_models/code_model/{args.short_model_name}"
+def create_tokenizer(args):
+    tokenizer = AutoTokenizer.from_pretrained(args.model_name)
+    tokenizer.pad_token = tokenizer.eos_token
+    return tokenizer
+
+def main(args):
+    
+    tokenizer = create_tokenizer(args)
+    dataset = create_dataset(args)
+    model = create_model(args)
+
+    name_for_model_save = f"saved_models/code_model/{args.short_model_name}/end"
     model = train(model, dataset, tokenizer, formatting_prompts_func, args)
     model.save_pretrained(name_for_model_save)
 

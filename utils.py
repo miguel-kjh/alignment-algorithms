@@ -5,8 +5,15 @@ from lightning import seed_everything
 
 import os
 
+import wandb
+
+#delete warnings
+import warnings
+
 
 def setup_environment(project, seed_value):
+    warnings.filterwarnings("ignore")
+    wandb.require("core")
     os.environ["WANDB_PROJECT"] = project
     seed_everything(seed_value)
     torch.backends.cudnn.deterministic = True

@@ -24,7 +24,6 @@ def parse_args():
     parse.add_argument("--wandb", type=bool, default=False)
     parse.add_argument("--upload", type=bool, default=False)
     parse.add_argument("--tiny_dataset", type=bool, default=False)
-    parse.add_argument("--train", type=bool, default=False)
     parse.add_argument("--neftune_noise_alpha", type=float, default=None) # https://arxiv.org/abs/2310.05914
     parse.add_argument("--instruction_modelling", type=bool, default=False) # http://arxiv.org/abs/2405.14394
     #loras parameters
@@ -138,14 +137,14 @@ def create_tokenizer(args):
     return tokenizer
 
 def main(args):
-    if args.train:
-        tokenizer = create_tokenizer(args)
-        dataset = create_dataset(args)
-        model = create_model(args)
-        model = train(model, dataset, tokenizer, formatting_prompts_func, args)
+    
+    tokenizer = create_tokenizer(args)
+    dataset   = create_dataset(args)
+    model     = create_model(args)
+    model     = train(model, dataset, tokenizer, formatting_prompts_func, args)
 
-    if args.upload:
-        model.push_to_hub(f"miguel-kjh/{args.short_model_name}_instruction_code_tuning")
+"""    if args.upload:
+        model.push_to_hub(f"miguel-kjh/{args.short_model_name}_instruction_code_tuning")"""
 
 
 

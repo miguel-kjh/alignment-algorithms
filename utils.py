@@ -17,6 +17,8 @@ def setup_environment(args):
     os.environ["WANDB_PROJECT"] = args.project
     if args.upload:
         os.environ["WANDB_LOG_MODEL"] = "checkpoint"
+    if not args.wandb:
+        os.environ["WANDB_DISABLED"] = "true"
     seed_everything(args.seed)
     torch.backends.cudnn.deterministic = True
     os.environ["HF_ALLOW_CODE_EVAL"] = "1"

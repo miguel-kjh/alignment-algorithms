@@ -130,11 +130,12 @@ def main(args):
     else:
         model = AutoModelForCausalLM.from_pretrained(args.model_name)
 
+    name_for_model_save = f"saved_models/code_model/{args.short_model_name}"
     model = train(model, dataset, tokenizer, formatting_prompts_func, args)
-    model.save_pretrained(f"saved_models/code_model/{args.model_name}")
+    model.save_pretrained(name_for_model_save)
 
     if args.upload:
-        model = AutoModelForCausalLM.from_pretrained("saved_models/code_model/pythia-70m")
+        model = AutoModelForCausalLM.from_pretrained(name_for_model_save)
         model.push_to_hub(f"miguel-kjh/{args.short_model_name}_instruction_code_tuning")
 
 

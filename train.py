@@ -89,11 +89,19 @@ def train(model, dataset, tokenizer, formatting_function, args):
         neftune_noise_alpha=args.neftune_noise_alpha,
     )
     
-    collator = DataCollatorForCompletionOnlyLM(
-        instruction_template=INTRUCTION_TEMPLATE, 
-        response_template=RESPONSE_TEMPLATE, 
-        tokenizer=tokenizer
-    )
+    if args.instruction_modelling:
+        # have to predict the instruction and the response
+        print("#"*10,"\nUsing instruction modelling\n", "#"*10)
+        collator = DataCollatorForCompletionOnlyLM(
+            response_template=INTRUCTION_TEMPLATE, 
+            tokenizer=tokenizer
+        )
+    else:
+        collator = DataCollatorForCompletionOnlyLM(
+            instruction_template=INTRUCTION_TEMPLATE, 
+            response_template=RESPONSE_TEMPLATE, 
+            tokenizer=tokenizer
+        )
         
     trainer = SFTTrainer(
         model=model_lora,

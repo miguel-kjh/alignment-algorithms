@@ -11,11 +11,13 @@ import wandb
 import warnings
 
 
-def setup_environment(project, seed_value):
+def setup_environment(args):
     warnings.filterwarnings("ignore")
     wandb.require("core")
-    os.environ["WANDB_PROJECT"] = project
-    seed_everything(seed_value)
+    os.environ["WANDB_PROJECT"] = args.project
+    if args.upload:
+        os.environ["WANDB_LOG_MODEL"] = "checkpoint"
+    seed_everything(args.seed)
     torch.backends.cudnn.deterministic = True
     os.environ["HF_ALLOW_CODE_EVAL"] = "1"
 

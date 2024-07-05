@@ -2,7 +2,7 @@ import argparse
 import torch
 from transformers import TrainingArguments, AutoTokenizer, BitsAndBytesConfig, AutoModelForCausalLM
 from peft import LoraConfig, get_peft_model
-from trl import DataCollatorForCompletionOnlyLM, SFTTrainer
+from trl import DataCollatorForCompletionOnlyLM, SFTTrainer, SFTConfig
 from datasets import load_dataset
 
 from utils import INTRUCTION_TEMPLATE, RESPONSE_TEMPLATE, generate_sample, get_current_timestamp, setup_environment
@@ -25,6 +25,8 @@ def parse_args():
     parse.add_argument("--upload", type=bool, default=False)
     parse.add_argument("--tiny_dataset", type=bool, default=False)
     parse.add_argument("--train", type=bool, default=False)
+    parse.add_argument("--neftune_noise_alpha", type=float, default=None) # https://arxiv.org/abs/2310.05914
+    parse.add_argument("--instruction_modelling", type=bool, default=False) # http://arxiv.org/abs/2405.14394
     #loras parameters
     parse.add_argument("--lora_r", type=int, default=16)
     parse.add_argument("--lora_alpha", type=int, default=32) # a trick use lora_r*2
@@ -38,6 +40,10 @@ def parse_args():
     args.lora_target_modules = args.lora_target_modules.split(",")
     args.short_model_name = args.model_name.split("/")[-1]
     args.run_name = f"{args.short_model_name}_tuning_code_epoch_{args.epochs}_lr_{args.lr}_wd_{args.weight_decay}_bs_{args.batch_size}_block_{args.block_size}_timestamp_{get_current_timestamp()}"
+    if args.neftune_noise_alpha is not None:
+        args.run_name = f"{args.run_name}_neftune_{args.neftune_noise_alpha}"
+    if args.instruction_modelling:
+        args.run_name = f"{args.run_name}_instruction_modelling"
     return args
 
 def formatting_prompts_func(example):
@@ -67,8 +73,8 @@ def train(model, dataset, tokenizer, formatting_function, args):
     model_lora.print_trainable_parameters()
     model_lora.config._name_or_path = args.model_name
     model_lora.config.pad_token_id = tokenizer.pad_token_id
-    train_arguments  = TrainingArguments(
-        output_dir=f"saved_models/code_model/{args.short_model_name}",
+    train_arguments  = SFTConfig(
+        output_dir=f"saved_models/code_model/{args.run_name}",
         learning_rate=args.lr,
         per_device_train_batch_size=args.batch_size,
         num_train_epochs=args.epochs,
@@ -80,9 +86,11 @@ def train(model, dataset, tokenizer, formatting_function, args):
         metric_for_best_model="loss",
         greater_is_better=False,
         run_name=args.run_name,
+        neftune_noise_alpha=args.neftune_noise_alpha,
     )
     
     collator = DataCollatorForCompletionOnlyLM(instruction_template=INTRUCTION_TEMPLATE, response_template=RESPONSE_TEMPLATE, tokenizer=tokenizer)
+
         
     trainer = SFTTrainer(
         model=model_lora,
@@ -119,17 +127,13 @@ def create_tokenizer(args):
     return tokenizer
 
 def main(args):
-    name_for_model_save = f"saved_models/code_model/{args.short_model_name}/end"
-
     if args.train:
         tokenizer = create_tokenizer(args)
         dataset = create_dataset(args)
         model = create_model(args)
         model = train(model, dataset, tokenizer, formatting_prompts_func, args)
-        model.save_pretrained(name_for_model_save)
 
     if args.upload:
-        model = AutoModelForCausalLM.from_pretrained(name_for_model_save)
         model.push_to_hub(f"miguel-kjh/{args.short_model_name}_instruction_code_tuning")
 
 
@@ -137,7 +141,7 @@ def main(args):
 
 if __name__ == "__main__":
     args = parse_args()
-    setup_environment(args.project, args.seed)
+    setup_environment(args)
     main(args)
     
     

@@ -117,8 +117,7 @@ def create_tokenizer(args):
     tokenizer.pad_token = tokenizer.eos_token
     return tokenizer
 
-def main(args):
-    
+def main(args):    
     tokenizer = create_tokenizer(args)
     dataset = create_dataset(args)
     model = create_model(args)

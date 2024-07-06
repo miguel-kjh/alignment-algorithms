@@ -16,7 +16,7 @@ for model_name in "${models[@]}"; do
   elif [[ "$model_name" == "microsoft/phi-2" ]]; then
     batch_size=4
     block_size=256
-    extra_params="--qlora true --lora_target_modules 'fc1,fc2'"
+    extra_params="--qlora true --lora_target_modules "fc1,fc2""
   else
     batch_size=$default_batch_size
     block_size=$default_block_size
@@ -34,7 +34,7 @@ for model_name in "${models[@]}"; do
 
   # Ejecutar el comando python train.py con todas las combinaciones de parámetros
   for param in "${params[@]}"; do
-    python train.py $param
+    echo train.py $param
   done
 done
 

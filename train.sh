@@ -32,9 +32,8 @@ for model_name in "${models[@]}"; do
 
   echo "Model: $model_name"
 
-  # Ejecutar el comando python train.py con todas las combinaciones de parámetros
   for param in "${params[@]}"; do
-    echo train.py $param
+    python train.py $param
   done
 done
 

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-models=("EleutherAI/pythia-410m-deduped" "EleutherAI/pythia-1b-deduped" "microsoft/phi-2")
+models=("EleutherAI/pythia-70m-deduped" "EleutherAI/pythia-410m-deduped" "EleutherAI/pythia-1b-deduped" "microsoft/phi-2")
 
 epochs=5
 noise_alpha=5
@@ -24,10 +24,10 @@ for model_name in "${models[@]}"; do
   fi
 
   params=(
-    "--model_name $model_name --epochs $epochs --wandb $wandb --batch_size $batch_size --block_size $block_size $extra_params"
-    "--model_name $model_name --epochs $epochs --wandb $wandb --neftune_noise_alpha $noise_alpha --batch_size $batch_size --block_size $block_size $extra_params"
-    "--model_name $model_name --epochs $epochs --wandb $wandb --instruction_modelling true --batch_size $batch_size --block_size $block_size $extra_params"
-    "--model_name $model_name --epochs $epochs --wandb $wandb --neftune_noise_alpha $noise_alpha --instruction_modelling true --batch_size $batch_size --block_size $block_size $extra_params"
+    "--model_name $model_name --epochs $epochs --upload true --wandb $wandb --batch_size $batch_size --block_size $block_size $extra_params"
+    "--model_name $model_name --epochs $epochs --upload true --wandb $wandb --neftune_noise_alpha $noise_alpha --batch_size $batch_size --block_size $block_size $extra_params"
+    "--model_name $model_name --epochs $epochs --upload true --wandb $wandb --instruction_modelling true --batch_size $batch_size --block_size $block_size $extra_params"
+    "--model_name $model_name --epochs $epochs --upload true --wandb $wandb --neftune_noise_alpha $noise_alpha --instruction_modelling true --batch_size $batch_size --block_size $block_size $extra_params"
   )
 
   echo "Model: $model_name"

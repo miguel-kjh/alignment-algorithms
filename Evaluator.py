@@ -1,3 +1,4 @@
+import torch
 from utils import INTRUCTION_TEMPLATE, RESPONSE_TEMPLATE
 
 
@@ -18,6 +19,7 @@ class Evaluator(ABC):
         super().__init__()
         self._model: AutoModelForCausalLM = model
         self._tokenizer: AutoTokenizer = tokenizer
+        self._device = "cuda" if torch.cuda.is_available() else "cpu"
 
     @staticmethod
     def generate_prompt(prompt):

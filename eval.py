@@ -62,6 +62,7 @@ class EvaluatorMBPP(Evaluator):
         pass_at_k_all = []
         y_hat = []
         y = []
+        tests = []
 
         for example in iterator:
             prompt = self.generate_prompt(example["prompt"])
@@ -79,6 +80,7 @@ class EvaluatorMBPP(Evaluator):
             code = output_text.split(RESPONSE_TEMPLATE)[1]
             y_hat.append(code)
             y.append(real_code)
+            tests.append(example["test_list"][0])
             """rouge_results = rouge.compute(predictions=code, references=real_code)
             print(rouge_results)
             exit()"""
@@ -120,7 +122,7 @@ def evaluate_model(model, dataset, tokenizer, name_of_evluator, max_tokens=100) 
 def main():
     ds = load_dataset("google-research-datasets/mbpp", "sanitized", num_proc=10, split="test")
     tokenizer = AutoTokenizer.from_pretrained("EleutherAI/pythia-70m-deduped")
-    model = AutoModelForCausalLM.from_pretrained("saved_models/code_model/pythia-1b-deduped_tuning_code_epoch_5_lr_0.0001_wd_0.01_bs_4_block_256_timestamp_2024-07-07_00-59-15/checkpoint-22525")
+    model = AutoModelForCausalLM.from_pretrained("saved_models/code_model/pythia-70m-deduped_tuning_code_epoch_2_lr_0.0001_wd_0.01_bs_8_block_512_timestamp_2024-07-08_12-45-07/checkpoint-4506")
     print(evaluate_model(model, ds, tokenizer, "mbpp", max_tokens=100))
     
 if __name__ == "__main__":

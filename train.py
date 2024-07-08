@@ -1,15 +1,13 @@
 import argparse
 import torch
-from transformers import TrainingArguments, AutoTokenizer, BitsAndBytesConfig, AutoModelForCausalLM
+from transformers import TrainingArguments, AutoTokenizer
 from peft import LoraConfig, get_peft_model
 from trl import DataCollatorForCompletionOnlyLM, SFTTrainer, SFTConfig
 from datasets import load_dataset
-from accelerate import FullyShardedDataParallelPlugin, Accelerator
-from torch.distributed.fsdp.fully_sharded_data_parallel import FullOptimStateDictConfig, FullStateDictConfig
 
 
 
-from utils import INTRUCTION_TEMPLATE, RESPONSE_TEMPLATE, generate_sample, get_current_timestamp, setup_environment
+from utils import INTRUCTION_TEMPLATE, RESPONSE_TEMPLATE, create_model, generate_sample, get_current_timestamp, setup_environment
 
 
 def parse_args():
@@ -48,14 +46,6 @@ def parse_args():
     if args.instruction_modelling:
         args.run_name = f"{args.run_name}_instruction_modelling"
     return args
-
-def create_accelerator():
-    fsdp_plugin = FullyShardedDataParallelPlugin(
-        state_dict_config=FullStateDictConfig(offload_to_cpu=True, rank0_only=False),
-        optim_state_dict_config=FullOptimStateDictConfig(offload_to_cpu=True, rank0_only=False),
-    )
-
-    return Accelerator(fsdp_plugin=fsdp_plugin)
 
 def formatting_prompts_func(example):
     output_texts = []
@@ -125,25 +115,6 @@ def train(model, dataset, tokenizer, formatting_function, args):
     )
     trainer.train()
     return model_lora.merge_and_unload()
-
-def create_model(args):
-    if args.qlora:
-        bnb_config = BitsAndBytesConfig(
-            load_in_4bit= True,
-            bnb_4bit_quant_type= "nf4",
-            bnb_4bit_compute_dtype= torch.bfloat16,
-            bnb_4bit_use_double_quant= False,
-        )
-        model = AutoModelForCausalLM.from_pretrained(
-            args.model_name,
-            quantization_config=bnb_config,
-            device_map={"": 0}
-        )
-    else:
-        model = AutoModelForCausalLM.from_pretrained(args.model_name)
-    accelerator = create_accelerator()
-    model = accelerator.prepare_model(model)
-    return model
 
 def create_tokenizer(args):
     tokenizer = AutoTokenizer.from_pretrained(args.model_name)

@@ -1,6 +1,6 @@
 #!/bin/bash
 
-models=("EleutherAI/pythia-70m-deduped" "EleutherAI/pythia-410m-deduped" "EleutherAI/pythia-1b-deduped" "microsoft/phi-2")
+models=("EleutherAI/pythia-14m" "EleutherAI/pythia-70m-deduped" "EleutherAI/pythia-410m-deduped" "EleutherAI/pythia-1b-deduped" "microsoft/phi-2")
 
 epochs=5
 noise_alpha=5

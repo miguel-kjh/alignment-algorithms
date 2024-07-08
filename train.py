@@ -4,6 +4,10 @@ from transformers import TrainingArguments, AutoTokenizer, BitsAndBytesConfig, A
 from peft import LoraConfig, get_peft_model
 from trl import DataCollatorForCompletionOnlyLM, SFTTrainer, SFTConfig
 from datasets import load_dataset
+from accelerate import FullyShardedDataParallelPlugin, Accelerator
+from torch.distributed.fsdp.fully_sharded_data_parallel import FullOptimStateDictConfig, FullStateDictConfig
+
+
 
 from utils import INTRUCTION_TEMPLATE, RESPONSE_TEMPLATE, generate_sample, get_current_timestamp, setup_environment
 
@@ -44,6 +48,14 @@ def parse_args():
     if args.instruction_modelling:
         args.run_name = f"{args.run_name}_instruction_modelling"
     return args
+
+def create_accelerator():
+    fsdp_plugin = FullyShardedDataParallelPlugin(
+        state_dict_config=FullStateDictConfig(offload_to_cpu=True, rank0_only=False),
+        optim_state_dict_config=FullOptimStateDictConfig(offload_to_cpu=True, rank0_only=False),
+    )
+
+    return Accelerator(fsdp_plugin=fsdp_plugin)
 
 def formatting_prompts_func(example):
     output_texts = []
@@ -129,6 +141,8 @@ def create_model(args):
         )
     else:
         model = AutoModelForCausalLM.from_pretrained(args.model_name)
+    accelerator = create_accelerator()
+    model = accelerator.prepare_model(model)
     return model
 
 def create_tokenizer(args):

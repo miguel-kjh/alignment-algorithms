@@ -1,22 +1,19 @@
 from Evaluator import Evaluator
-from utils import RESPONSE_TEMPLATE, INTRUCTION_TEMPLATE
-from datasets import load_dataset
+
 
 import torch
 import tqdm
+from datasets import load_dataset
 
 
-class EvaluatorMBPP(Evaluator):
-    
+class EvaluatorHumanEval(Evaluator):
+
     def __init__(self, model, tokenizer) -> None:
         super().__init__(model, tokenizer)
         self._test_dataset = load_dataset(
-            "google-research-datasets/mbpp", 
-            "sanitized", 
-            num_proc=10, 
-            split="test"
-        )
-        
+            "openai/openai_humaneval",
+            num_proc=10,
+        )["test"]
 
     def evaluate(self, max_tokens: int, verbose: bool = True):
         try:
@@ -32,10 +29,8 @@ class EvaluatorMBPP(Evaluator):
         tests = []
 
         for example in iterator:
-            real_code = example["code"]
-            function_name = real_code.split(":")[0]
-            prompt = example["prompt"] + "\n" + function_name + ":"
-            prompt = self.generate_prompt(prompt)
+            prompt = self.generate_prompt(example["prompt"])
+            real_code = example["prompt"] + example["canonical_solution"]
 
             inputs = self._tokenizer.encode(prompt, return_tensors="pt").to(self._device)
             with torch.no_grad():
@@ -46,12 +41,10 @@ class EvaluatorMBPP(Evaluator):
                     pad_token_id=self._tokenizer.eos_token_id,
                 )
                 output_text = self._tokenizer.decode(outputs[0], skip_special_tokens=True)
-    
-            code = function_name + ":" + output_text.split(RESPONSE_TEMPLATE)[1]
+
+            code = output_text.replace("### Human:", "").replace("### Response:", "")
             y_hat.append(code)
             y.append(real_code)
-            tests.append(example["test_list"])
-            break
+            tests.append(example["test"])
 
         return y_hat, y, tests
-    

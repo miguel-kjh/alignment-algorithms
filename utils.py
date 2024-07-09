@@ -83,9 +83,15 @@ def calculate_metrics(y_hat, y, tests):
 
     for candidate, tests in zip(y_hat, tests):
         candidates = [[candidate]]
-        test_cases = [tests]
-        pass_at_k, _ = code_eval.compute(references=test_cases, predictions=candidates, k=[1])
-        pass_at_k_all.append(pass_at_k["pass@1"])
+        try:
+            test_cases = [tests]
+            pass_at_k, _ = code_eval.compute(references=test_cases, predictions=candidates, k=[1])
+            pass_at_k_all.append(pass_at_k["pass@1"])
+        except:
+            test_cases = [" ".join(tests)]
+            pass_at_k, _ = code_eval.compute(references=test_cases, predictions=candidates, k=[1])
+            pass_at_k_all.append(pass_at_k["pass@1"])
+        
 
     results = calc_codebleu(y, y_hat, lang="python", weights=(0.25, 0.25, 0.25, 0.25), tokenizer=None)
     rouge_results = rouge.compute(predictions=y_hat, references=y)

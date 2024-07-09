@@ -7,12 +7,13 @@ from datasets import load_dataset
 
 
 
+from eval import evaluate_model
 from utils import INTRUCTION_TEMPLATE, RESPONSE_TEMPLATE, create_model, generate_sample, get_current_timestamp, setup_environment
 
 
 def parse_args():
     parse = argparse.ArgumentParser()
-    parse.add_argument("--model_name", type=str, default="EleutherAI/pythia-70m-deduped")
+    parse.add_argument("--model_name", type=str, default="EleutherAI/pythia-14m")
     parse.add_argument("--batch_size", type=int, default=8)
     parse.add_argument("--epochs", type=int, default=2)
     parse.add_argument("--lr", type=float, default=1e-4)
@@ -36,6 +37,8 @@ def parse_args():
     parse.add_argument("--lora_task_type", type=str, default="CAUSAL_LM")
     parse.add_argument("--lora_target_modules", type=str, default="query_key_value,dense,dense_h_to_4h,dense_4h_to_h")
     parse.add_argument("--qlora", type=bool, default=False)
+    parse.add_argument("--eval_dataset", type=str, default="human_eval")
+    parse.add_argument("--eval_max_tokens", type=int, default=100)
     
     args = parse.parse_args()
     args.lora_target_modules = args.lora_target_modules.split(",")
@@ -121,15 +124,19 @@ def create_tokenizer(args):
     tokenizer.pad_token = tokenizer.eos_token
     return tokenizer
 
+
 def main(args):
     
     tokenizer = create_tokenizer(args)
     dataset   = create_dataset(args)
     model     = create_model(args)
     model     = train(model, dataset, tokenizer, formatting_prompts_func, args)
-
-"""    if args.upload:
-        model.push_to_hub(f"miguel-kjh/{args.short_model_name}_instruction_code_tuning")"""
+    metrics   = evaluate_model(model, tokenizer, args.eval_dataset, max_tokens=args.eval_max_tokens)
+    print(metrics)
+    if args.wandb:
+        import wandb
+        wandb.init(project=args.project, name=args.run_name)
+        wandb.log(metrics)
 
 
 

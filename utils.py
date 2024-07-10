@@ -15,16 +15,21 @@ import wandb
 #delete warnings
 import warnings
 
-def setup_environment(args):
+def set_deterministic_behavior(seed):
     warnings.filterwarnings("ignore")
+    seed_everything(seed)
+    torch.backends.cudnn.deterministic = True
+
+def setup_environment(args):
+    
+    set_deterministic_behavior(args.seed)
+    
     wandb.require("core")
     os.environ["WANDB_PROJECT"] = args.project
     if args.upload:
         os.environ["WANDB_LOG_MODEL"] = "checkpoint"
     if not args.wandb:
         os.environ["WANDB_DISABLED"] = "true"
-    seed_everything(args.seed)
-    torch.backends.cudnn.deterministic = True
     os.environ["HF_ALLOW_CODE_EVAL"] = "1"
 
 

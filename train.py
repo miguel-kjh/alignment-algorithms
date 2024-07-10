@@ -86,6 +86,7 @@ def train(model, dataset, tokenizer, formatting_function, args):
         evaluation_strategy="epoch",
         logging_dir="./logs",
         save_strategy="epoch",
+        lr_scheduler_type = "cosine",
         load_best_model_at_end=False,
         metric_for_best_model="loss",
         greater_is_better=False,

@@ -11,26 +11,25 @@ import os
 from torch.distributed.fsdp.fully_sharded_data_parallel import FullOptimStateDictConfig, FullStateDictConfig
 from transformers import AutoModelForCausalLM, BitsAndBytesConfig
 import wandb
+from token_id import TOKEN_ID
+from huggingface_hub import login
+
 
 #delete warnings
 import warnings
 
-def set_deterministic_behavior(seed):
-    warnings.filterwarnings("ignore")
-    seed_everything(seed)
-    torch.backends.cudnn.deterministic = True
-
 def setup_environment(args):
-    
-    set_deterministic_behavior(args.seed)
-    
+    warnings.filterwarnings("ignore")
     wandb.require("core")
     os.environ["WANDB_PROJECT"] = args.project
     if args.upload:
         os.environ["WANDB_LOG_MODEL"] = "checkpoint"
     if not args.wandb:
         os.environ["WANDB_DISABLED"] = "true"
+    seed_everything(args.seed)
+    torch.backends.cudnn.deterministic = True
     os.environ["HF_ALLOW_CODE_EVAL"] = "1"
+    login(TOKEN_ID)
 
 
 INTRUCTION_TEMPLATE = "### Human:"

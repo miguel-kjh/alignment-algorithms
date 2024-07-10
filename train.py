@@ -4,6 +4,7 @@ from transformers import TrainingArguments, AutoTokenizer
 from peft import LoraConfig, get_peft_model
 from trl import DataCollatorForCompletionOnlyLM, SFTTrainer, SFTConfig
 from datasets import load_dataset
+import copy
 
 
 
@@ -21,6 +22,7 @@ def parse_args():
     parse.add_argument("--block_size", type=int, default=512)
     parse.add_argument("--seed", type=int, default=2024)
     parse.add_argument("--dataset", type=str, default="HuggingFaceH4/CodeAlpaca_20K")
+    parse.add_argument("--idda", type=str, default=None)
     parse.add_argument("--num_proc", type=int, default=10)
     parse.add_argument("--project", type=str, default="instruction_tuning_code")
     parse.add_argument("--device", type=str, default="cuda:0" if torch.cuda.is_available() else "cpu")
@@ -48,6 +50,9 @@ def parse_args():
         args.run_name = f"{args.run_name}_neftune_{args.neftune_noise_alpha}"
     if args.instruction_modelling:
         args.run_name = f"{args.run_name}_instruction_modelling"
+    if args.idda is not None:
+        name_idda_dataset = args.idda.split("/")[-1]
+        args.run_name = f"{args.run_name}_idda_{name_idda_dataset}"
     return args
 
 def formatting_prompts_func(example):
@@ -56,11 +61,21 @@ def formatting_prompts_func(example):
         output_texts.append(generate_sample(prompt, completion))
     return output_texts
 
-def create_dataset(args) -> dict:
-    ds = load_dataset(args.dataset, num_proc=args.num_proc)
-    if args.tiny_dataset:
-        ds["train"] = ds["train"].shuffle(seed=args.seed).select(range(100))
-        ds["test"] = ds["test"].shuffle(seed=args.seed).select(range(100))
+def formatting_prompts_func_idda(example):
+    output_texts = []
+    for sample in zip(example["conversations"]):
+        prompt = sample[0][0]
+        completion = sample[0][1]
+        output_texts.append(generate_sample(prompt, completion))
+    return output_texts
+
+def create_dataset(dataset_name: str, num_proc: int, seed: int, max_sample: int = 100, do_split: bool = False) -> dict:
+    ds = load_dataset(dataset_name, num_proc=num_proc)
+    if args.tiny_dataset: #TODO: refactor this to be more clean
+        ds["train"] = ds["train"].shuffle(seed=seed).select(range(max_sample))
+        ds["test"] = ds["test"].shuffle(seed=seed).select(range(max_sample))
+    if do_split:
+        ds = ds["train"].train_test_split(test_size=0.1, seed=seed)
     return ds
 
 def train(model, dataset, tokenizer, formatting_function, args):
@@ -86,7 +101,6 @@ def train(model, dataset, tokenizer, formatting_function, args):
         evaluation_strategy="epoch",
         logging_dir="./logs",
         save_strategy="epoch",
-        lr_scheduler_type = "cosine",
         load_best_model_at_end=False,
         metric_for_best_model="loss",
         greater_is_better=False,
@@ -125,13 +139,26 @@ def create_tokenizer(args):
     tokenizer.pad_token = tokenizer.eos_token
     return tokenizer
 
+def select_train_strategy(model, dataset, tokenizer, formatting_prompts_func, args):
+    if args.idda is not None:
+        print("#"*10, "\nUsing IDDA\n", "#"*10)
+        idda_dataset = create_dataset(args.idda, int(args.num_proc), int(args.seed), do_split=True)
+        args_copy = copy.deepcopy(args)
+        args_copy.epoch = 1
+        for _ in range(args.epochs):
+            model = train(model, idda_dataset, tokenizer, formatting_prompts_func_idda, args_copy)
+            model = train(model, dataset, tokenizer, formatting_prompts_func, args_copy)
+        return model
+    else:
+        return train(model, dataset, tokenizer, formatting_prompts_func, args)
+
 
 def main(args):
     
     tokenizer = create_tokenizer(args)
-    dataset   = create_dataset(args)
+    dataset   = create_dataset(args.dataset, int(args.num_proc), int(args.seed))
     model     = create_model(args)
-    model     = train(model, dataset, tokenizer, formatting_prompts_func, args)
+    model     = select_train_strategy(model, dataset, tokenizer, formatting_prompts_func, args)
     metrics   = evaluate_model(model, tokenizer, args.eval_dataset, max_tokens=args.eval_max_tokens)
     print(metrics)
     if args.wandb:

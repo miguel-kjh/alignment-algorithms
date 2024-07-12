@@ -5,7 +5,7 @@ from EvaluatorMBPP import EvaluatorMBPP
 
 import os
 
-from utils import calculate_metrics, set_deterministic_behavior
+from utils import calculate_metrics
 os.environ["HF_ALLOW_CODE_EVAL"] = "1"
 os.environ["TOKENIZERS_PARALLELISM"] = "false"
 
@@ -28,9 +28,8 @@ def evaluate_model(model, tokenizer, name_of_evluator, max_tokens=100) -> dict:
     }
 
 def main():
-    set_deterministic_behavior(2024)
     tokenizer = AutoTokenizer.from_pretrained("EleutherAI/pythia-70m-deduped")
-    model = AutoModelForCausalLM.from_pretrained("saved_models/code_model/pythia-410m-deduped_tuning_code_epoch_5_lr_0.0001_wd_0.01_bs_8_block_512_timestamp_2024-07-09_13-38-00_neftune_5.0/checkpoint-11265")
+    model = AutoModelForCausalLM.from_pretrained("saved_models/code_model/pythia-410m-deduped_tuning_code_epoch_5_lr_0.0001_wd_0.01_bs_8_block_512_timestamp_2024-07-10_21-53-28_idda_lima/checkpoint-11265")
     print(evaluate_model(model, tokenizer, "human_eval", max_tokens=100))
     
 if __name__ == "__main__":

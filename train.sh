@@ -13,10 +13,12 @@ for model_name in "${models[@]}"; do
     batch_size=4
     block_size=256
     extra_params="--qlora true"
+    epochs=2
   elif [[ "$model_name" == "microsoft/phi-2" ]]; then
     batch_size=4
     block_size=256
     extra_params="--qlora true --lora_target_modules "Wqkv,fc1,fc2" --lora_r 8 --lora_alpha 16"
+    epochs=2
   else
     batch_size=$default_batch_size
     block_size=$default_block_size
@@ -24,10 +26,10 @@ for model_name in "${models[@]}"; do
   fi
 
   params=(
-    "--model_name $model_name --epochs $epochs --upload true --wandb $wandb --batch_size $batch_size --block_size $block_size $extra_params"
-    "--model_name $model_name --epochs $epochs --upload true --wandb $wandb --neftune_noise_alpha $noise_alpha --batch_size $batch_size --block_size $block_size $extra_params"
-    "--model_name $model_name --epochs $epochs --upload true --wandb $wandb --instruction_modelling true --batch_size $batch_size --block_size $block_size $extra_params"
-    "--model_name $model_name --epochs $epochs --upload true --wandb $wandb --neftune_noise_alpha $noise_alpha --instruction_modelling true --batch_size $batch_size --block_size $block_size $extra_params"
+    "--model_name $model_name --epochs $epochs --idda GAIR/lima --upload true --wandb $wandb --batch_size $batch_size --block_size $block_size $extra_params"
+    #"--model_name $model_name --epochs $epochs --idda GAIR/lima --upload true --wandb $wandb --neftune_noise_alpha $noise_alpha --batch_size $batch_size --block_size $block_size $extra_params"
+    #"--model_name $model_name --epochs $epochs --upload true --wandb $wandb --instruction_modelling true --batch_size $batch_size --block_size $block_size $extra_params"
+    #"--model_name $model_name --epochs $epochs --upload true --wandb $wandb --neftune_noise_alpha $noise_alpha --instruction_modelling true --batch_size $batch_size --block_size $block_size $extra_params"
   )
 
   echo "Model: $model_name"

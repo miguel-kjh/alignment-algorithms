@@ -20,7 +20,7 @@ class Evaluator(ABC):
         self._model: AutoModelForCausalLM = model
         self._tokenizer: AutoTokenizer = tokenizer
         self._device = "cuda" if torch.cuda.is_available() else "cpu"
-        self._model.generation_config.pad_token_id = self._tokenizer.pad_token_id
+        #self._model.generation_config.pad_token_id = self._tokenizer.pad_token_id
 
     @staticmethod
     def generate_prompt(prompt):

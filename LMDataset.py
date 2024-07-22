@@ -1,6 +1,5 @@
 from abc import ABC, abstractmethod
 from datasets import load_dataset
-from utils import generate_sample
 
 class LMDataset(ABC):
     dataset_name = None
@@ -15,64 +14,4 @@ class LMDataset(ABC):
             dataset = dataset[train_dataset].train_test_split(test_size=0.1, seed=seed)
         return {"dataset": dataset}
 
-class CodeAlpacaDataset(LMDataset):
-    
-    def __init__(self) -> None:
-        super().__init__()
-        self.dataset_name = "HuggingFaceH4/CodeAlpaca_20K"
-
-    def create_dataset(self, num_proc: int, seed: int, max_sample: int = 100, do_split: bool = False) -> dict:
-        dataset_dict = super().create_dataset(num_proc, seed, max_sample, do_split)
-        
-        def format_prompt_completions(example):
-            formatted_texts = []
-            for prompt, completion in zip(example["prompt"], example["completion"]):
-                formatted_texts.append(generate_sample(prompt, completion))
-            return formatted_texts
-        
-        dataset_dict["format_prompt_completions"] = format_prompt_completions        
-        return dataset_dict
-    
-class LimaDataset(LMDataset):
-    
-    def __init__(self) -> None:
-        super().__init__()
-        self.dataset_name = "GAIR/lima"
-
-    def create_dataset(self, num_proc: int, seed: int, max_sample: int = 100, do_split: bool = False) -> dict:
-        dataset_dict = super().create_dataset(num_proc, seed, max_sample, do_split)
-        
-        def format_prompt_completions(example):
-            formatted_texts = []
-            for sample in zip(example["conversations"]):
-                prompt = sample[0][0]
-                completion = sample[0][1]
-                formatted_texts.append(generate_sample(prompt, completion))
-            return formatted_texts
-        
-        dataset_dict["format_prompt_completions"] = format_prompt_completions        
-        return dataset_dict
-    
-class CommonsenseQA(LMDataset):
-
-    def __init__(self) -> None:
-        super().__init__()
-        self.dataset_name = "tau/commonsense_qa"
-        
-    def create_dataset(self, num_proc: int, seed: int, max_sample: int = 100, do_split: bool = False) -> dict:
-        dataset_dict = super().create_dataset(num_proc, seed, max_sample, do_split)
-        
-        def format_prompt_completions(example):
-            formatted_texts = []
-            for question,data,answerKey in zip(example["question"], example["choices"], example["answerKey"]):
-                formatted_string = ""
-                for label, text in zip(data['label'], data['text']):
-                    formatted_string += f"({label.lower()}) {text} "
-                formatted_string = question + formatted_string.strip()
-                completion = f"({answerKey.lower()})"
-                formatted_texts.append(generate_sample(formatted_string, completion))
-            return formatted_texts
-        
-        dataset_dict["format_prompt_completions"] = format_prompt_completions        
-        return dataset_dict
     

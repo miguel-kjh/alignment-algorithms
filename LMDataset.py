@@ -6,13 +6,13 @@ class LMDataset(ABC):
     dataset_name = None
 
     @abstractmethod
-    def create_dataset(self, num_proc: int, seed: int, max_sample: int = None, do_split: bool = False) -> dict:
+    def create_dataset(self, num_proc: int, seed: int, max_sample: int = None, do_split: bool = False, train_dataset: str = "train", test_dataset: str = "test") -> dict:
         dataset = load_dataset(self.dataset_name, num_proc=num_proc)
         if max_sample is not None:
-            dataset["train"] = dataset["train"].shuffle(seed=seed).select(range(max_sample))
-            dataset["test"] = dataset["test"].shuffle(seed=seed).select(range(max_sample))
+            dataset[train_dataset] = dataset[train_dataset].shuffle(seed=seed).select(range(max_sample))
+            dataset[test_dataset]  = dataset[test_dataset].shuffle(seed=seed).select(range(max_sample))
         if do_split:
-            dataset = dataset["train"].train_test_split(test_size=0.1, seed=seed)
+            dataset = dataset[train_dataset].train_test_split(test_size=0.1, seed=seed)
         return {"dataset": dataset}
 
 class CodeAlpacaDataset(LMDataset):
@@ -52,3 +52,14 @@ class LimaDataset(LMDataset):
         
         dataset_dict["format_prompt_completions"] = format_prompt_completions        
         return dataset_dict
+    
+class CommonsenseQA(LMDataset):
+
+    def __init__(self) -> None:
+        super().__init__()
+        self.dataset_name = "tau/commonsense_qa"
+
+#main
+if __name__ == "__main__":
+    ds = load_dataset("tau/commonsense_qa", num_proc=10)
+    print(ds)

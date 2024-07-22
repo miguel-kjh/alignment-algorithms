@@ -58,8 +58,21 @@ class CommonsenseQA(LMDataset):
     def __init__(self) -> None:
         super().__init__()
         self.dataset_name = "tau/commonsense_qa"
-
-#main
-if __name__ == "__main__":
-    ds = load_dataset("tau/commonsense_qa", num_proc=10)
-    print(ds)
+        
+    def create_dataset(self, num_proc: int, seed: int, max_sample: int = 100, do_split: bool = False) -> dict:
+        dataset_dict = super().create_dataset(num_proc, seed, max_sample, do_split)
+        
+        def format_prompt_completions(example):
+            formatted_texts = []
+            for question,data,answerKey in zip(example["question"], example["choices"], example["answerKey"]):
+                formatted_string = ""
+                for label, text in zip(data['label'], data['text']):
+                    formatted_string += f"({label.lower()}) {text} "
+                formatted_string = question + formatted_string.strip()
+                completion = f"({answerKey.lower()})"
+                formatted_texts.append(generate_sample(formatted_string, completion))
+            return formatted_texts
+        
+        dataset_dict["format_prompt_completions"] = format_prompt_completions        
+        return dataset_dict
+    

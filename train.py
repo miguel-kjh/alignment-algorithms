@@ -6,8 +6,6 @@ from trl import DataCollatorForCompletionOnlyLM, SFTTrainer, SFTConfig
 from datasets import load_dataset
 import copy
 
-
-
 from eval import evaluate_model
 from utils import INTRUCTION_TEMPLATE, RESPONSE_TEMPLATE, create_model, generate_sample, get_current_timestamp, setup_environment
 

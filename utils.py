@@ -32,8 +32,8 @@ def setup_environment(args):
     login(TOKEN_ID)
 
 
-INTRUCTION_TEMPLATE = "### Human:"
-RESPONSE_TEMPLATE = "### Response:"
+INTRUCTION_TEMPLATE = "### Question:"
+RESPONSE_TEMPLATE = "### Answer:"
 
 
 def generate_sample(prompt, answer):

@@ -2,6 +2,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from EvaluatorHumanEval import EvaluatorHumanEval
 from EvaluatorMBPP import EvaluatorMBPP
+from Evaluator import EvaluatorCommonsenQA
 
 import os
 
@@ -16,6 +17,7 @@ warnings.filterwarnings("ignore")
 evaluators = {
     "mbpp": EvaluatorMBPP,
     "human_eval": EvaluatorHumanEval,
+    "commonsense_qa": EvaluatorCommonsenQA,
 }
 
 def evaluate_model(model, tokenizer, name_of_evluator, max_tokens=100) -> dict:

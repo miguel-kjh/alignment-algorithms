@@ -8,7 +8,7 @@ class CodeAlpacaDataset(LMDataset):
         super().__init__()
         self.dataset_name = "HuggingFaceH4/CodeAlpaca_20K"
 
-    def create_dataset(self, num_proc: int, seed: int, max_sample: int = 100, do_split: bool = False) -> dict:
+    def create_dataset(self, num_proc: int, seed: int, max_sample: int = None, do_split: bool = False) -> dict:
         dataset_dict = super().create_dataset(num_proc, seed, max_sample, do_split)
 
         def format_prompt_completions(example):

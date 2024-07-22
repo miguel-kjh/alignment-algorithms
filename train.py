@@ -4,6 +4,9 @@ from transformers import TrainingArguments, AutoTokenizer
 from peft import LoraConfig, get_peft_model
 from trl import DataCollatorForCompletionOnlyLM, SFTTrainer, SFTConfig
 from datasets import load_dataset
+from CodeAlpacaDataset import CodeAlpacaDataset
+from CommonsenseQA import CommonsenseQA
+from LimaDataset import LimaDataset
 import copy
 
 from eval import evaluate_model
@@ -19,7 +22,7 @@ def parse_args():
     parse.add_argument("--weight_decay", type=float, default=0.01)
     parse.add_argument("--block_size", type=int, default=512)
     parse.add_argument("--seed", type=int, default=2024)
-    parse.add_argument("--dataset", type=str, default="HuggingFaceH4/CodeAlpaca_20K")
+    parse.add_argument("--dataset", type=str, default="commonsense_qa")
     parse.add_argument("--idda", type=str, default=None)
     parse.add_argument("--num_proc", type=int, default=10)
     parse.add_argument("--project", type=str, default="instruction_tuning_code")
@@ -52,29 +55,6 @@ def parse_args():
         name_idda_dataset = args.idda.split("/")[-1]
         args.run_name = f"{args.run_name}_idda_{name_idda_dataset}"
     return args
-
-def formatting_prompts_func(example):
-    output_texts = []
-    for prompt, completion in zip(example["prompt"], example["completion"]):
-        output_texts.append(generate_sample(prompt, completion))
-    return output_texts
-
-def formatting_prompts_func_idda(example):
-    output_texts = []
-    for sample in zip(example["conversations"]):
-        prompt = sample[0][0]
-        completion = sample[0][1]
-        output_texts.append(generate_sample(prompt, completion))
-    return output_texts
-
-def create_dataset(dataset_name: str, num_proc: int, seed: int, max_sample: int = 100, do_split: bool = False) -> dict:
-    ds = load_dataset(dataset_name, num_proc=num_proc)
-    if args.tiny_dataset: #TODO: refactor this to be more clean
-        ds["train"] = ds["train"].shuffle(seed=seed).select(range(max_sample))
-        ds["test"] = ds["test"].shuffle(seed=seed).select(range(max_sample))
-    if do_split:
-        ds = ds["train"].train_test_split(test_size=0.1, seed=seed)
-    return ds
 
 def train(model, dataset, tokenizer, formatting_function, args):
     
@@ -140,32 +120,37 @@ def create_tokenizer(args):
 def select_train_strategy(model, dataset, tokenizer, formatting_prompts_func, args):
     if args.idda is not None:
         print("#"*10, "\nUsing IDDA\n", "#"*10)
-        idda_dataset = create_dataset(args.idda, int(args.num_proc), int(args.seed), do_split=True)
+        lima_dataset = LimaDataset().create_dataset(args.num_proc, args.seed)
         args_copy = copy.deepcopy(args)
         args_copy.epoch = 1
         for _ in range(args.epochs):
-            model = train(model, idda_dataset, tokenizer, formatting_prompts_func_idda, args_copy)
+            model = train(model, lima_dataset['dataset'], tokenizer, lima_dataset['format_prompt_completions'], args_copy)
             model = train(model, dataset, tokenizer, formatting_prompts_func, args_copy)
         return model
     else:
         return train(model, dataset, tokenizer, formatting_prompts_func, args)
 
+datasets = {
+    "code_alpaca": CodeAlpacaDataset(),
+    "commonsense_qa": CommonsenseQA(),
+    "lima": LimaDataset(),
+}
 
 def main(args):
     
+    assert args.dataset in datasets, f"Dataset {args.dataset} not found"
+    
     tokenizer = create_tokenizer(args)
-    dataset   = create_dataset(args.dataset, int(args.num_proc), int(args.seed))
+    max_sample = 100 if args.tiny_dataset else None
+    dataset   = datasets[args.dataset].create_dataset(args.num_proc, args.seed, max_sample=max_sample)
     model     = create_model(args)
-    model     = select_train_strategy(model, dataset, tokenizer, formatting_prompts_func, args)
-    metrics   = evaluate_model(model, tokenizer, args.eval_dataset, max_tokens=args.eval_max_tokens)
-    print(metrics)
+    model     = select_train_strategy(model, dataset['dataset'], tokenizer, dataset["format_prompt_completions"], args)
+    #metrics   = evaluate_model(model, tokenizer, args.eval_dataset, max_tokens=args.eval_max_tokens)
+    #print(metrics)
     if args.wandb:
         import wandb
         wandb.init(project=args.project, name=args.run_name)
-        wandb.log(metrics)
-
-
-
+        #wandb.log(metrics)
 
 if __name__ == "__main__":
     args = parse_args()

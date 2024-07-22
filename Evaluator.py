@@ -31,3 +31,8 @@ class Evaluator(ABC):
     @abstractmethod
     def evaluate(self, max_tokens: int, verbose: bool = True):
         pass
+    
+class EvaluatorCommonsenQA(Evaluator):
+    
+    def evaluate(self, max_tokens: int, verbose: bool = True):
+        pass

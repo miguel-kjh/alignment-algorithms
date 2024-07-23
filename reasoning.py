@@ -10,7 +10,7 @@ import tqdm
 
 os.environ["OPENAI_API_KEY"] = OPEN_IA_API_KEY
 MODEL = "gpt-4o-mini"
-NUMBER_OF_SAMPLES = 100
+NUMBER_OF_SAMPLES = 5
 
 model = ChatOpenAI(model=MODEL)
 test_dataset = load_dataset("commonsense_qa", split="train")

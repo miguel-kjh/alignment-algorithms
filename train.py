@@ -1,13 +1,16 @@
 import argparse
+import pandas as pd
 import torch
 from transformers import TrainingArguments, AutoTokenizer
 from peft import LoraConfig, get_peft_model
 from trl import DataCollatorForCompletionOnlyLM, SFTTrainer, SFTConfig
 from datasets import load_dataset
 from CodeAlpacaDataset import CodeAlpacaDataset
-from CommonsenseQA import CommonsenseQA
+from CommonsenseQA import CommonsenseQA, CommonsenseQARationale
 from LimaDataset import LimaDataset
 import copy
+from datasets import Dataset
+
 
 from eval import evaluate_model
 from utils import INTRUCTION_TEMPLATE, RESPONSE_TEMPLATE, create_model, generate_sample, get_current_timestamp, setup_environment
@@ -24,6 +27,7 @@ def parse_args():
     parse.add_argument("--seed", type=int, default=2024)
     parse.add_argument("--dataset", type=str, default="commonsense_qa")
     parse.add_argument("--idda", type=str, default=None)
+    parse.add_argument("--start", type=str, default=None)
     parse.add_argument("--num_proc", type=int, default=10)
     parse.add_argument("--project", type=str, default="instruction_tuning_code")
     parse.add_argument("--device", type=str, default="cuda:0" if torch.cuda.is_available() else "cpu")
@@ -117,7 +121,12 @@ def create_tokenizer(args):
     tokenizer.pad_token = tokenizer.eos_token
     return tokenizer
 
+def start_training(model, rationale_dataset, dataset, tokenizer, formatting_prompts_func, args):
+    pass
+
 def select_train_strategy(model, dataset, tokenizer, formatting_prompts_func, args):
+    assert args.idda is None or args.start is None, "IDDA and start should not be active at the same time"
+    
     if args.idda is not None:
         print("#"*10, "\nUsing IDDA\n", "#"*10)
         lima_dataset = LimaDataset().create_dataset(args.num_proc, args.seed)
@@ -127,6 +136,10 @@ def select_train_strategy(model, dataset, tokenizer, formatting_prompts_func, ar
             model = train(model, lima_dataset['dataset'], tokenizer, lima_dataset['format_prompt_completions'], args_copy)
             model = train(model, dataset, tokenizer, formatting_prompts_func, args_copy)
         return model
+    if args.start is not None:
+        print("#"*10, "\nUsing start\n", "#"*10)
+        rationale_dataset = CommonsenseQARationale().create_dataset()
+        return start_training(model, rationale_dataset, dataset, tokenizer, formatting_prompts_func, args)
     else:
         return train(model, dataset, tokenizer, formatting_prompts_func, args)
 

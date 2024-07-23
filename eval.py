@@ -2,7 +2,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from EvaluatorHumanEval import EvaluatorHumanEval
 from EvaluatorMBPP import EvaluatorMBPP
-from Evaluator import EvaluatorCommonsenQA
+from EvaluatorCommonsenQA import EvaluatorCommonsenQA
 
 import os
 
@@ -23,11 +23,14 @@ evaluators = {
 def evaluate_model(model, tokenizer, name_of_evluator, max_tokens=100) -> dict:
     evaluator = evaluators[name_of_evluator](model, tokenizer)
     results = evaluator.evaluate(max_tokens=max_tokens)
-    metrics = calculate_metrics(*results)
-    return {
-        name: round(result*100, 2)
-        for name, result in metrics.items()
-    }
+    if name_of_evluator in ["mbpp", "human_eval"]:
+        metrics = calculate_metrics(*results)
+        return {
+            name: round(result*100, 2)
+            for name, result in metrics.items()
+        }
+    else:
+        return results
 
 def main():
     tokenizer = AutoTokenizer.from_pretrained("EleutherAI/pythia-70m-deduped")

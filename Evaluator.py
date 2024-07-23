@@ -7,7 +7,6 @@ from transformers import AutoModelForCausalLM, AutoTokenizer
 
 from abc import ABC, abstractmethod
 
-
 class Evaluator(ABC):
 
     def __init__(
@@ -32,7 +31,3 @@ class Evaluator(ABC):
     def evaluate(self, max_tokens: int, verbose: bool = True):
         pass
     
-class EvaluatorCommonsenQA(Evaluator):
-    
-    def evaluate(self, max_tokens: int, verbose: bool = True):
-        pass

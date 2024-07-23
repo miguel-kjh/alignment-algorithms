@@ -40,8 +40,8 @@ def parse_args():
     parse.add_argument("--lora_task_type", type=str, default="CAUSAL_LM")
     parse.add_argument("--lora_target_modules", type=str, default="query_key_value,dense,dense_h_to_4h,dense_4h_to_h")
     parse.add_argument("--qlora", type=bool, default=False)
-    parse.add_argument("--eval_dataset", type=str, default="human_eval")
-    parse.add_argument("--eval_max_tokens", type=int, default=100)
+    parse.add_argument("--eval_dataset", type=str, default="commonsense_qa")
+    parse.add_argument("--eval_max_tokens", type=int, default=1)
     
     args = parse.parse_args()
     args.lora_target_modules = args.lora_target_modules.split(",")
@@ -104,7 +104,7 @@ def train(model, dataset, tokenizer, formatting_function, args):
         model=model_lora,
         args=train_arguments,
         train_dataset=dataset["train"],
-        eval_dataset=dataset["test"],
+        eval_dataset=dataset["validation"],
         formatting_func=formatting_function,
         data_collator=collator,
         max_seq_length=args.block_size,
@@ -140,17 +140,17 @@ def main(args):
     
     assert args.dataset in datasets, f"Dataset {args.dataset} not found"
     
-    tokenizer = create_tokenizer(args)
+    tokenizer  = create_tokenizer(args)
     max_sample = 100 if args.tiny_dataset else None
-    dataset   = datasets[args.dataset].create_dataset(args.num_proc, args.seed, max_sample=max_sample)
-    model     = create_model(args)
-    model     = select_train_strategy(model, dataset['dataset'], tokenizer, dataset["format_prompt_completions"], args)
-    #metrics   = evaluate_model(model, tokenizer, args.eval_dataset, max_tokens=args.eval_max_tokens)
-    #print(metrics)
+    dataset    = datasets[args.dataset].create_dataset(args.num_proc, args.seed, max_sample=max_sample)
+    model      = create_model(args)
+    model      = select_train_strategy(model, dataset['dataset'], tokenizer, dataset["format_prompt_completions"], args)
+    metrics    = evaluate_model(model, tokenizer, args.eval_dataset, max_tokens=args.eval_max_tokens)
+    print(metrics)
     if args.wandb:
         import wandb
         wandb.init(project=args.project, name=args.run_name)
-        #wandb.log(metrics)
+        wandb.log(metrics)
 
 if __name__ == "__main__":
     args = parse_args()

@@ -9,8 +9,8 @@ import tqdm
 
 
 os.environ["OPENAI_API_KEY"] = OPEN_IA_API_KEY
-MODEL = "gpt-3.5-turbo-0125"
-NUMBER_OF_SAMPLES = 10
+MODEL = "gpt-4o-mini"
+NUMBER_OF_SAMPLES = 100
 
 model = ChatOpenAI(model=MODEL)
 test_dataset = load_dataset("commonsense_qa", split="train")
@@ -23,7 +23,7 @@ Format:
 Question: {question}
 Options: {options}
 Correct Answer: {correct_answer}
-Always end with: The correct answer is ("letter")
+Reasoning:
 """
 
 prompt = ChatPromptTemplate.from_template(template_prompt)
@@ -39,8 +39,7 @@ for example in tqdm.tqdm(test_dataset, desc="Generating reasoning"):
         "options": options.strip(),
         "correct_answer": example["answerKey"].lower()
     }
-    reasoning = chain.invoke(input_data).split("The correct answer is")[-1].strip()
-    
+    reasoning = chain.invoke(input_data).strip().split("Reasoning:")[-1]
     # Agregar los datos a la lista
     data.append({
         "question": example["question"],

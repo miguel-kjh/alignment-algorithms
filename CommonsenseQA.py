@@ -60,11 +60,12 @@ class CommonsenseQARationale(LMDataset):
     
 class CommonsenseQAFewShot(LMDataset):
 
-    def __init__(self) -> None:
+    def __init__(self, numbre_of_sample: int) -> None:
         super().__init__()
         self.dataset_name = "tau/commonsense_qa"
         reasoning_data = "questions_with_reasoning.xlsx"
         df = pd.read_excel(reasoning_data)
+        df = df.sample(numbre_of_sample)
         self.rationale_dataset = Dataset.from_pandas(df)
         
     def _initialize_prompt(self):

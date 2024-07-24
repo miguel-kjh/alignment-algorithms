@@ -54,6 +54,7 @@ def parse_args():
     parse.add_argument("--start_epochs", type=int, default=2)
     parse.add_argument("--start_batch_size", type=int, default=3)
     parse.add_argument("--start_portion", type=float, default=0.1)
+    parse.add_argument("--start_few_shot", type=int, default=5)
     args = parse.parse_args()
     args.lora_target_modules = args.lora_target_modules.split(",")
     args.short_model_name = args.model_name.split("/")[-1]
@@ -207,7 +208,7 @@ def select_train_strategy(model, dataset, tokenizer, formatting_prompts_func, ar
         return model
     if args.start is not None:
         print("#"*10, "\nUsing start\n", "#"*10)
-        rationale_dataset = CommonsenseQAFewShot().create_dataset(args.num_proc, args.seed)
+        rationale_dataset = CommonsenseQAFewShot(args.start_few_shot).create_dataset(args.num_proc, args.seed)
         return start_training(model, rationale_dataset, tokenizer, args)
     else:
         return train(model, dataset, tokenizer, formatting_prompts_func, args)

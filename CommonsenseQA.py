@@ -32,10 +32,13 @@ class CommonsenseQARationale(LMDataset):
     def __init__(self) -> None:
         super().__init__()
         self.dataset_name = "questions_with_reasoning.xlsx"
+        self.df = pd.read_excel(self.dataset_name)
+        
+    def add_data(self, data: dict):
+        self.df = self.df.append(data, ignore_index=True)
 
     def create_dataset(self) -> dict:
-        df = pd.read_excel(self.dataset_name)
-        rationale_dataset = Dataset.from_pandas(df)
+        rationale_dataset = Dataset.from_pandas(self.df)
         dataset_dict = {"dataset": rationale_dataset}
 
         def format_prompt_completions(example):
@@ -49,8 +52,7 @@ class CommonsenseQARationale(LMDataset):
         dataset_dict["format_prompt_completions"] = format_prompt_completions
         return dataset_dict
     
-"""
-class CommonsenseQARationale(LMDataset):
+class CommonsenseQAFewShot(LMDataset):
 
     def __init__(self) -> None:
         super().__init__()
@@ -75,20 +77,17 @@ class CommonsenseQARationale(LMDataset):
                 for label, text in zip(data['label'], data['text']):
                     formatted_string += f"({label.lower()}) {text} "
                 formatted_string = question + formatted_string.strip()
-                completion = f"{answerKey.lower()}"
-                formatted_texts.append(generate_sample(formatted_string, completion))
+                formatted_texts.append((generate_sample(formatted_string, ""), answerKey.lower()))
             return formatted_texts
 
         dataset_dict["format_prompt_completions"] = format_prompt_completions
         return dataset_dict
     
-#main
-"""
 if __name__ == "__main__":
-    rationale_dataset = CommonsenseQARationale()
-    ds = rationale_dataset.create_dataset()
+    rationale_dataset = CommonsenseQAFewShot()
+    ds = rationale_dataset.create_dataset(10, 20)
     print(ds)
-    example = ds["dataset"]
+    example = ds["dataset"]['train']
     print(example)
     f = ds["format_prompt_completions"]
     print(f(example)[0])

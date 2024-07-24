@@ -42,10 +42,8 @@ for example in tqdm.tqdm(test_dataset, desc="Generating reasoning"):
     reasoning = chain.invoke(input_data).strip().split("Reasoning:")[-1]
     # Agregar los datos a la lista
     data.append({
-        "question": example["question"],
-        "options": options.strip(),
-        "correct_answer": example["answerKey"].lower(),
-        "reasoning": reasoning
+        "question": example["question"] + options.strip(),
+        "answer": f"{reasoning}. The correct answer is {example['answerKey']}"
     })
 
 df = pd.DataFrame(data)

@@ -45,7 +45,7 @@ for example in tqdm.tqdm(test_dataset, desc="Generating reasoning"):
     # Agregar los datos a la lista
     data.append({
         "question": example["question"] + options.strip(),
-        "answer": f"{reasoning}. The correct answer is {example['answerKey']}"
+        "answer": f"{reasoning} The correct answer is {example['answerKey'].lower()}"
     })
 
 df = pd.DataFrame(data)

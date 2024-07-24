@@ -9,13 +9,16 @@ from trl import DataCollatorForCompletionOnlyLM, SFTTrainer, SFTConfig
 from datasets import load_dataset
 from CodeAlpacaDataset import CodeAlpacaDataset
 from CommonsenseQA import CommonsenseQA, CommonsenseQAFewShot, CommonsenseQARationale
+from EvaluatorCommonsenQA import EvaluatorCommonsenQA
+from EvaluatorHumanEval import EvaluatorHumanEval
+from EvaluatorMBPP import EvaluatorMBPP
 from LimaDataset import LimaDataset
 import copy
 from datasets import Dataset
 
 
 from eval import evaluate_model
-from utils import INTRUCTION_TEMPLATE, RESPONSE_TEMPLATE, create_model, generate_sample, get_current_timestamp, setup_environment
+from utils import INTRUCTION_TEMPLATE, RESPONSE_TEMPLATE, calculate_metrics, create_model, generate_sample, get_current_timestamp, setup_environment
 
 
 def parse_args():
@@ -187,12 +190,13 @@ def start_training(model, rationale_dataset, tokenizer, args):
             all_questions.extend([prompt.replace(INTRUCTION_TEMPLATE, '').replace(RESPONSE_TEMPLATE, '') for prompt in batch_prompts])
         # filtrar aquellas que estan bien
         correct_answers = filter_correct_answers(all_questions, all_answers, y_hat)
-        print(f"Correct answers: {len(correct_answers['question'])}")
+        print(f"Correct answers: {len(correct_answers['question'])}")# TODO: save this un wandb
         # agregarlas al dataset
         dataset.add_data(correct_answers)
         # entrenar model_to_generate = train(model,dataset)
         rationale_dataset = dataset.create_dataset()
         model_to_generate = train(model, rationale_dataset['dataset'], tokenizer, rationale_dataset["format_prompt_completions"], args)
+    return model_to_generate
 
 def select_train_strategy(model, dataset, tokenizer, formatting_prompts_func, args):
     assert args.idda is None or args.start is None, "IDDA and start should not be active at the same time"
@@ -228,12 +232,17 @@ def main(args):
     dataset    = datasets[args.dataset].create_dataset(args.num_proc, args.seed, max_sample=max_sample)
     model      = create_model(args)
     model      = select_train_strategy(model, dataset['dataset'], tokenizer, dataset["format_prompt_completions"], args)
-    """metrics    = evaluate_model(model, tokenizer, args.eval_dataset, max_tokens=args.eval_max_tokens)
+    evaluators = {
+        "mbpp": EvaluatorMBPP(model, tokenizer),
+        "human_eval": EvaluatorHumanEval(model, tokenizer),
+        "commonsense_qa": EvaluatorCommonsenQA(model, tokenizer, using_start=args.start is not None),
+    }
+    metrics = evaluators[args.eval_dataset].evaluate(args.eval_max_tokens)
     print(metrics)
     if args.wandb:
         import wandb
         wandb.init(project=args.project, name=args.run_name)
-        wandb.log(metrics)"""
+        wandb.log(metrics)
 
 if __name__ == "__main__":
     args = parse_args()

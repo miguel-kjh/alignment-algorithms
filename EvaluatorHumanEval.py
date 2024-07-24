@@ -5,6 +5,8 @@ import torch
 import tqdm
 from datasets import load_dataset
 
+from utils import calculate_metrics
+
 
 class EvaluatorHumanEval(Evaluator):
 
@@ -46,5 +48,9 @@ class EvaluatorHumanEval(Evaluator):
             y_hat.append(code)
             y.append(real_code)
             tests.append(example["test"])
-
-        return y_hat, y, tests
+            
+        metrics = calculate_metrics(y_hat, y, tests)
+        return {
+            name: round(result*100, 2)
+            for name, result in metrics.items()
+        } 

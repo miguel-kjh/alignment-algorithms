@@ -10,12 +10,13 @@ import evaluate
 
 class EvaluatorCommonsenQA(Evaluator):
 
-    def __init__(self, model, tokenizer) -> None:
+    def __init__(self, model, tokenizer, using_start) -> None:
         super().__init__(model, tokenizer)
         self._test_dataset = load_dataset(
             "commonsense_qa",
             num_proc=10,
         )["validation"]
+        self._using_start = using_start
 
     def evaluate(self, max_tokens: int, verbose: bool = True):
         try:
@@ -47,6 +48,9 @@ class EvaluatorCommonsenQA(Evaluator):
                 )
                 output_text = self._tokenizer.decode(outputs[0], skip_special_tokens=True)
                 answer = output_text.split(RESPONSE_TEMPLATE)[1].strip().lower()
+                if self._using_start:
+                    #get the answer from the start of the output using `The correct answer is`
+                    answer = output_text.split("The correct answer is")[-1].strip().lower()
 
             y_hat.append(answer)
             y.append(real_answer)

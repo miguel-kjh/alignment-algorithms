@@ -1,5 +1,5 @@
 from Evaluator import Evaluator
-from utils import RESPONSE_TEMPLATE, INTRUCTION_TEMPLATE
+from utils import RESPONSE_TEMPLATE, INTRUCTION_TEMPLATE, calculate_metrics
 from datasets import load_dataset
 
 import torch
@@ -51,7 +51,10 @@ class EvaluatorMBPP(Evaluator):
             y_hat.append(code)
             y.append(real_code)
             tests.append(example["test_list"])
-            break
-
-        return y_hat, y, tests
+            
+        metrics = calculate_metrics(y_hat, y, tests)
+        return {
+            name: round(result*100, 2)
+            for name, result in metrics.items()
+        }
     

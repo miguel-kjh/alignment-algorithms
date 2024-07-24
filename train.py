@@ -8,7 +8,7 @@ from peft import LoraConfig, get_peft_model
 from trl import DataCollatorForCompletionOnlyLM, SFTTrainer, SFTConfig
 from datasets import load_dataset
 from CodeAlpacaDataset import CodeAlpacaDataset
-from CommonsenseQA import CommonsenseQA, CommonsenseQAFewShot
+from CommonsenseQA import CommonsenseQA, CommonsenseQAFewShot, CommonsenseQARationale
 from LimaDataset import LimaDataset
 import copy
 from datasets import Dataset
@@ -51,7 +51,7 @@ def parse_args():
     # start algorithm
     parse.add_argument("--start", type=str, default=None)
     parse.add_argument("--start_max_tokens", type=int, default=100)
-    parse.add_argument("--start_epochs", type=int, default=1)
+    parse.add_argument("--start_epochs", type=int, default=2)
     parse.add_argument("--start_batch_size", type=int, default=3)
     parse.add_argument("--start_portion", type=float, default=0.1)
     args = parse.parse_args()
@@ -142,18 +142,22 @@ def compare_answer(string, original_letter):
     extracted_answer = extract_answer(string)
     return extracted_answer == original_letter
 
-def filter_correct_answers(strings, original_letters):
-    correct_answers = []
-    for string, original_letter in zip(strings, original_letters):
-        if compare_answer(string, original_letter):
-            correct_answers.append(string)
+def filter_correct_answers(questions, answers, original_letters):
+    correct_answers = {
+        "question": [],
+        "answer": [],
+    }
+    for question, answer, original_letter in zip(questions, answers, original_letters):
+        if compare_answer(answer, original_letter):
+            correct_answers["question"].append(question)
+            correct_answers["answer"].append(answer)
     return correct_answers
 
-def start_training(model, rationale_dataset, dataset, tokenizer, formatting_prompts_func, args):
+def start_training(model, rationale_dataset, tokenizer, args):
     model_to_generate = copy.deepcopy(model)
     few_shot_dataset = rationale_dataset['format_prompt_completions'](rationale_dataset["dataset"]["train"])
     #create a empty dataset pandas
-    df = pd.DataFrame(columns=["question", "options", "answer"])
+    dataset = CommonsenseQARationale()
     def process_batch(prompts):
         inputs = tokenizer(prompts, return_tensors="pt", padding=True, truncation=True).to(args.device)
         with torch.no_grad():
@@ -171,6 +175,7 @@ def start_training(model, rationale_dataset, dataset, tokenizer, formatting_prom
         # sacar respuestas y razonamiento
         iterator = tqdm.tqdm(range(0, int(len(few_shot_dataset)*args.start_portion), args.start_batch_size), desc="Generating rationale")
         all_answers = []
+        all_questions = []
         y_hat = []
         for i in iterator:
             batch_prompts = [sample[0] for sample in few_shot_dataset[i:i+args.start_batch_size]]
@@ -178,12 +183,14 @@ def start_training(model, rationale_dataset, dataset, tokenizer, formatting_prom
             answers = process_batch(batch_prompts)
             all_answers.extend(answers)
             y_hat.extend(batch_y_hat)
+            all_questions.extend([prompt.replace(INTRUCTION_TEMPLATE, '').replace(RESPONSE_TEMPLATE, '') for prompt in batch_prompts])
         # filtrar aquellas que estan bien
-        correct_answers = filter_correct_answers(all_answers, y_hat)
-        print(f"Correct answers: {len(correct_answers)}")
+        correct_answers = filter_correct_answers(all_questions, all_answers, y_hat)
         # agregarlas al dataset
+        dataset.add_data(correct_answers)
         # entrenar model_to_generate = train(model,dataset)
-        pass
+        rationale_dataset = dataset.create_dataset()
+        model_to_generate = train(model, rationale_dataset['dataset'], tokenizer, rationale_dataset["format_prompt_completions"], args)
 
 def select_train_strategy(model, dataset, tokenizer, formatting_prompts_func, args):
     assert args.idda is None or args.start is None, "IDDA and start should not be active at the same time"
@@ -200,7 +207,7 @@ def select_train_strategy(model, dataset, tokenizer, formatting_prompts_func, ar
     if args.start is not None:
         print("#"*10, "\nUsing start\n", "#"*10)
         rationale_dataset = CommonsenseQAFewShot().create_dataset(args.num_proc, args.seed)
-        return start_training(model, rationale_dataset, dataset, tokenizer, formatting_prompts_func, args)
+        return start_training(model, rationale_dataset, tokenizer, args)
     else:
         return train(model, dataset, tokenizer, formatting_prompts_func, args)
 

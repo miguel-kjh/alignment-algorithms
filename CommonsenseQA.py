@@ -35,17 +35,23 @@ class CommonsenseQARationale(LMDataset):
         self.df = pd.read_excel(self.dataset_name)
         
     def add_data(self, data: dict):
-        self.df = self.df.append(data, ignore_index=True)
+        for question, answer in zip(data["question"], data["answer"]):
+            self.df = pd.concat([self.df, pd.DataFrame({"question": [question], "answer": [answer]})])
 
     def create_dataset(self) -> dict:
         rationale_dataset = Dataset.from_pandas(self.df)
+        #split into train and validation
+        rationale_dataset = rationale_dataset.train_test_split(test_size=0.1)
+        #chage name of test to validation
+        rationale_dataset = {
+            "train": rationale_dataset["train"],
+            "validation": rationale_dataset["test"]
+        }
         dataset_dict = {"dataset": rationale_dataset}
 
         def format_prompt_completions(example):
             formatted_texts = []
-            for question,data,answerKey,rationale in zip(example["question"], example["options"], example["correct_answer"], example["reasoning"]):
-                formatted_string = question + data
-                completion = f"{rationale} The correct answer is {answerKey}"
+            for formatted_string, completion in zip(example["question"], example['answer']):
                 formatted_texts.append(generate_sample(formatted_string, completion))
             return formatted_texts
 
@@ -64,7 +70,7 @@ class CommonsenseQAFewShot(LMDataset):
     def _initialize_prompt(self):
         template_prompt = ""
         for example in self.rationale_dataset:
-            template_prompt += f"Question: {example['question']}\n Options: {example['options']}\n Reasoning: {example['reasoning']}\n The correct answer is: {example['correct_answer']}\n"
+            template_prompt += f"Question: {example['question']}\n Answer: {example['answer']}\n"
         return template_prompt
 
     def create_dataset(self, num_proc: int, seed: int, max_sample: int = None, do_split: bool = False) -> dict:

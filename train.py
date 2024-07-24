@@ -186,6 +186,7 @@ def start_training(model, rationale_dataset, tokenizer, args):
             all_questions.extend([prompt.replace(INTRUCTION_TEMPLATE, '').replace(RESPONSE_TEMPLATE, '') for prompt in batch_prompts])
         # filtrar aquellas que estan bien
         correct_answers = filter_correct_answers(all_questions, all_answers, y_hat)
+        print(f"Correct answers: {len(correct_answers['question'])}")
         # agregarlas al dataset
         dataset.add_data(correct_answers)
         # entrenar model_to_generate = train(model,dataset)

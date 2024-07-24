@@ -10,10 +10,12 @@ import tqdm
 
 os.environ["OPENAI_API_KEY"] = OPEN_IA_API_KEY
 MODEL = "gpt-4o-mini"
-NUMBER_OF_SAMPLES = 5
+NUMBER_OF_SAMPLES = 100
 
 model = ChatOpenAI(model=MODEL)
 test_dataset = load_dataset("commonsense_qa", split="train")
+#shuffle the dataset
+test_dataset = test_dataset.shuffle()
 test_dataset = test_dataset.select(range(NUMBER_OF_SAMPLES))
 
 
